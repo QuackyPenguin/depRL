@@ -1,5 +1,3 @@
-import torch
-
 from deprl import custom_torso
 from deprl.vendor.tonic.torch import agents, updaters
 
