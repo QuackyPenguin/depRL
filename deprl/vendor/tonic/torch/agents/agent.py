@@ -168,7 +168,7 @@ class Agent(agents.Agent):
         what was saved.
         """
         state_dict = torch.load(path, map_location=self.device)
-        if "critic.torso.model.0.weight" in state_dict.keys():
+        if "critic.torso.model.0.weight" in state_dict.keys() or 'critic_1.torso.model.0.weight' in state_dict.keys():
             self.model.load_state_dict(state_dict)
         else:
             self.model.actor.load_state_dict(state_dict)

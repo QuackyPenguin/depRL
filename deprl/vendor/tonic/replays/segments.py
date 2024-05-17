@@ -81,3 +81,12 @@ class Segment:
             discount_factor=self.discount_factor,
             trace_decay=self.trace_decay,
         )
+
+    def save(self, path):
+        # Saving the segment is not necessary.
+        pass
+
+    def load(self, path, device="cpu"):
+        # Loading the segment is not necessary.
+        pass
+

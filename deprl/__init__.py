@@ -3,7 +3,8 @@ from . import (
     custom_mpo_torch,
     custom_replay_buffers,
     custom_trainer,
-    custom_ppo_torch
+    custom_ppo_torch,
+    custom_sac_torch
 )
 from .env_wrappers import apply_wrapper, env_tonic_compat
 from .utils import load, load_baseline, mujoco_render
@@ -21,6 +22,7 @@ __all__ = [
     custom_replay_buffers,
     custom_mpo_torch,
     custom_ppo_torch,
+    custom_sac_torch,
     custom_agents,
     custom_trainer,
     apply_wrapper,

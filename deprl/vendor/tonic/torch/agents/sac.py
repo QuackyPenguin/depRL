@@ -59,7 +59,7 @@ class SAC(DDPG):
             return self.model.actor(observations).sample()
 
     def _policy(self, observations):
-        return self._stochastic_actions(observations).numpy()
+        return self._stochastic_actions(observations).cpu().numpy()
 
     def _greedy_actions(self, observations):
         observations = torch.as_tensor(observations, dtype=torch.float32)
