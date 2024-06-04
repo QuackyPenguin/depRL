@@ -61,8 +61,8 @@ def train(
     agent = eval(tonic_conf["agent"])
 
     # Set custom mpo parameters
-    if "mpo_args" in config:
-        agent.set_params(**config["mpo_args"])
+    if "model_args" in config:
+        agent.set_params(**config["model_args"])
     agent.initialize(
         observation_space=environment.observation_space,
         action_space=environment.action_space,

@@ -6,7 +6,7 @@ tonic:
   checkpoint: "last"
   environment: "deprl.environments.Gym('sconerun_h0918-v1', scaled_actions=False)"
   full_save: 1
-  name: "denis/tunedmpo_sconerun_h0918"
+  name: "denis/tunedppo_sconerun_h0918"
   resume: true
   seed: 0
   parallel: 20

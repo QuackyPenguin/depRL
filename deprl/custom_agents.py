@@ -92,6 +92,7 @@ def dep_factory(mix, instance):
                 if not self.switch:
                     self.dep_step(muscle_states, steps)
                     return super().step(observations, steps)
+            
             actions = self.dep_step(muscle_states, steps)
 
             self.last_observations = observations.copy()

@@ -104,7 +104,7 @@ In this section, we'll start with an example settings file, explain the main pur
     init_activations_mean: 0.01
     init_activations_std: 0 # if 0: deterministic
 
-  mpo_args:
+  model_args:
     hidden_size: 1024
     lr_actor: 3.53e-05
     lr_critic: 6.081e-05
@@ -136,7 +136,7 @@ In this section, we'll start with an example settings file, explain the main pur
   The saving mechanism for SCONE/Hyfydy is slightly different from the default, improving integration with the remaining SCONE features. When a sconegym experiment is detected, the experiment is automatically saved to the results folder defined in the SCONE interface. The `working_dir` argument is ignored in that case.
 
 * `env_args`: This is a dictionary of arguments passed to the environment. The environments will save this as `env.keyword = value`. It's only useful for specific environments that use these settings. This is distinct from the passing of additional keyword arguments to `deprl.environments.Gym(...)` which will be given to the `gym.make` function at the first creation of the env.
-* `mpo_args`: These settings get passed to the MPO algorithm and can be used to adapt the learning rates of actor and critic `lr_actor`, `lr_critic`, the learning rate of the dual optimizer `lr_dual` and the hidden size of the actor and critic networks.
+* `model_args`: These settings get passed to the algorithm and can be used to adapt the learning rates of actor and critic `lr_actor`, `lr_critic`, the learning rate of the dual optimizer `lr_dual` and the hidden size of the actor and critic networks, and other parameters specific to the algorithm.
 
 .. note::
  The passing of arguments to the learner is only suppoerted for MPO. Take a look at the `TunedMPO` class to see how you can implement it for other algorithms.

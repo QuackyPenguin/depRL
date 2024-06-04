@@ -14,7 +14,7 @@ DEP:
   time_dist: 5
   with_learning: true
 env_args: {}
-mpo_args:
+model_args:
   hidden_size: 1024
   lr_actor: 3.53e-05
   lr_critic: 6.081e-05

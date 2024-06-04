@@ -23,7 +23,7 @@ class DEP:
         json.
         """
         if params_path == "default_path":
-            dirname = os.path.dirname(__file__)
+            dirname = os.path.dirname(__file__) 
             params_path = os.path.join(
                 dirname, "param_files/default_agents.json"
             )
@@ -219,3 +219,37 @@ class DEP:
 
             C += torch.einsum("ij, ik->ijk", mu, v)
         return C
+    
+    # def update_priors(self, observations, actions, rewards):
+    #     """
+    #     Update DEP priors based on PPO data.
+    #     """
+    #     observations = torch.tensor(observations, dtype=torch.float32)
+    #     actions = torch.tensor(actions, dtype=torch.float32)
+    #     rewards = torch.tensor(rewards, dtype=torch.float32)
+
+    #     delta_obs = observations[1:] - observations[:-1]
+    #     delta_act = actions[1:] - actions[:-1]
+
+    #     for i in range(len(delta_obs)):
+    #         chi = delta_obs[i]
+    #         v = delta_act[i]
+    #         mu = torch.einsum("ijk, ik->ij", self.M, chi)
+    #         self.C += torch.einsum("ij, ik->ijk", mu, v)
+
+    #     R = torch.einsum("ijk, imk->ijm", self.C, self.M)
+    #     reg = 10.0 ** (-self.regularization)
+        
+    #     if self.normalization == "independent":
+    #         factor = self.kappa / (torch.linalg.norm(R, axis=-1) + reg)
+    #         self.C_norm = torch.einsum("ijk,ik->ijk", self.C, factor)
+    #     elif self.normalization == "global":
+    #         norm = torch.linalg.norm(R)
+    #         self.C_norm = self.C * self.kappa / (norm + reg)
+    #     elif self.normalization == "none":
+    #         self.C_norm = self.C
+    #     else:
+    #         raise NotImplementedError(
+    #             f"Controller matrix normalization {self.normalization} not implemented."
+    #         )
+

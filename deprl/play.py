@@ -334,8 +334,8 @@ def play(
         environment.apply_args()
 
     # Adapt mpo specific settings
-    if config and "mpo_args" in config:
-        agent.set_params(**config["mpo_args"])
+    if config and "model_args" in config:
+        agent.set_params(**config["model_args"])
     # Initialize the agent.
     agent.initialize(
         observation_space=environment.observation_space,
