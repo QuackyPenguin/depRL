@@ -54,10 +54,14 @@ class Trainer:
         num_workers = len(observations)
         scores = np.zeros(num_workers)
         lengths = np.zeros(num_workers, int)
+        unique_states = [set() for _ in range(num_workers)]
+        action_entropies = np.full((num_workers, 1), 0)
+        action_variances = np.full((num_workers, 1), 0)
         self.steps, epoch_steps = steps, 0
         steps_since_save = 0
 
         while True:
+            
             # Select actions.
             if hasattr(self.agent, "expl"):
                 greedy_episode = (
@@ -72,6 +76,15 @@ class Trainer:
             assert not np.isnan(actions.sum())
             # raise Exception(f'{type(self.environment.environments[0])}')
             logger.store("train/action", actions, stats=True)
+            
+            action_variance = np.var(actions, axis=1)
+            action_entropy = 0.5 * np.log(2 * np.pi * np.e * action_variance)
+            
+            for i, obs in enumerate(observations):
+                unique_states[i].add(tuple(obs.flatten()))
+            
+            action_variances = np.hstack((action_variances, action_variance.reshape(-1, 1)))
+            action_entropies = np.hstack((action_entropies, action_entropy.reshape(-1, 1)))
 
             # Take a step in the environments.
             observations, muscle_states, info = self.environment.step(actions)
@@ -106,9 +119,18 @@ class Trainer:
                                 self.agent.replay.action_cost,
                             )
                             self.agent.replay.adjust(scores[i])
+                    
                     scores[i] = 0
                     lengths[i] = 0
                     episodes += 1
+                    
+                    logger.store("train/unique_states", len(unique_states[i]))
+                    logger.store("train/entropy", np.mean(action_entropy[i]))
+                    logger.store("train/variance", np.mean(action_variance[i]))
+                    
+                    unique_states[i] = set()
+                    action_entropies[i] = np.array([0])
+                    action_variances[i] = np.array([0])
 
             # End of the epoch.
             if epoch_steps >= self.epoch_steps:

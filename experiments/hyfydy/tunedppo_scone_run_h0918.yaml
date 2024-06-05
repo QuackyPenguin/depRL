@@ -1,7 +1,7 @@
 tonic:
   after_training: ''
   header: "import deprl, gym, sconegym"
-  agent: "deprl.custom_agents.dep_factory(0, deprl.custom_ppo_torch.TunedPPO())(replay=deprl.replays.segments.Segment())"
+  agent: "deprl.custom_agents.dep_factory(3, deprl.custom_ppo_torch.TunedPPO())(replay=deprl.replays.segments.Segment())"
   before_training: ''
   checkpoint: "last"
   environment: "deprl.environments.Gym('sconerun_h0918-v1', scaled_actions=False)"
