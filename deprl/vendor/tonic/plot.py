@@ -173,7 +173,6 @@ def plot(
     paths,
     x_axis,
     y_axes,
-    entropy_axes,
     x_label,
     y_label,
     window,
@@ -201,7 +200,7 @@ def plot(
         baselines,
         baselines_source,
         x_axis,
-        y_axes + entropy_axes,
+        y_axes,
         x_min,
         x_max,
         window,
@@ -378,44 +377,6 @@ def plot(
             print(file_name)
         print("to", os.getcwd())
 
-    # Plot each exploration parameter in a separate plot
-    for y_axis in entropy_axes:
-        entropy_fig, entropy_ax = plt.subplots(figsize=(columns * 6, 5))
-        logger.log(f"Plotting {y_axis} values...")
-        for env in envs:
-            for agent in sorted(data[env], key=str.casefold):
-                color = agent_colors[agent]
-                if y_axis not in data[env][agent]:
-                    continue
-
-                xs, means = data[env][agent][y_axis]["seeds"]
-                for x, mean in zip(xs, means):
-                    entropy_ax.plot(x, mean, c=color, lw=1, label=f"{agent} - {env}")
-
-        entropy_ax.set_ylim(ymin=y_min, ymax=y_max)
-        entropy_ax.locator_params(axis="x", nbins=6)
-        entropy_ax.locator_params(axis="y", tight=True, nbins=6)
-        entropy_ax.get_yaxis().set_major_formatter(
-            mpl.ticker.FuncFormatter(lambda x, p: f"{x:,g}")
-        )
-        low, high = entropy_ax.get_xlim()
-        if max(abs(low), abs(high)) >= 1e3:
-            entropy_ax.ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
-        entropy_ax.xaxis.grid(linewidth=0.5, alpha=0.5)
-        entropy_ax.yaxis.grid(linewidth=0.5)
-        entropy_ax.spines["top"].set_visible(False)
-        entropy_ax.spines["right"].set_visible(False)
-        entropy_ax.tick_params(axis="both", which="both", length=0)
-        entropy_ax.set_xlabel(x_label if x_label else "Steps")
-        entropy_ax.set_ylabel(y_axis.split('/')[-1])
-        entropy_ax.legend()
-
-        if save_formats:
-            for save_format in save_formats:
-                entropy_file_name = name + "_" + y_axis.split('/')[-1] + "." + save_format
-                entropy_fig.savefig(entropy_file_name, facecolor=entropy_fig.get_facecolor(), dpi=dpi)
-                print(entropy_file_name)
-
     return fig
 
 
@@ -424,7 +385,6 @@ def main():
     parser.add_argument("--paths", nargs="+", default=[])
     parser.add_argument("--x_axis", default="train/steps")
     parser.add_argument("--y_axes", nargs="+", default=["test/episode_score"])
-    parser.add_argument("--entropy_axes", nargs="+", default=["train/action_entropy"])
     parser.add_argument("--x_label")
     parser.add_argument("--y_label")
     parser.add_argument("--interval", default="bounds")

@@ -36,6 +36,7 @@ def dep_factory(mix, instance):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.expl = DEP()
+            
 
         def initialize(self, observation_space, action_space, seed=None):
             super().initialize(observation_space, action_space, seed)

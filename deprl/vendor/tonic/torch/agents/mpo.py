@@ -107,6 +107,8 @@ class MPO(Agent):
 
             for key in infos:
                 for k, v in infos[key].items():
+                    # with open("log.txt", "a") as f:
+                    #     f.write(f"{key}/{k}: {v.cpu().numpy()}\n")
                     logger.store(key + "/" + k, v.detach().cpu().numpy())
 
         # Update the normalizers.

@@ -60,7 +60,7 @@ def train(
         raise ValueError("No agent specified.")
     agent = eval(tonic_conf["agent"])
 
-    # Set custom mpo parameters
+    # Set custom parameters
     if "model_args" in config:
         agent.set_params(**config["model_args"])
     agent.initialize(

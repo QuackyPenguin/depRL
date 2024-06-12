@@ -1,6 +1,7 @@
 import torch
 
 from deprl.vendor.tonic.torch import models, updaters  # noqa
+# from deprl.vendor.tonic.utils import logger
 
 FLOAT_EPSILON = 1e-8
 
@@ -271,6 +272,9 @@ class TwinCriticSoftDeterministicPolicyGradient:
             actions = distributions.rsample()
             log_probs = distributions.log_prob(actions)
         log_probs = log_probs.sum(dim=-1)
+        
+        entropy = -log_probs.mean()
+        
         values_1 = self.model.critic_1(observations, actions)
         values_2 = self.model.critic_2(observations, actions)
         values = torch.min(values_1, values_2)
@@ -283,8 +287,9 @@ class TwinCriticSoftDeterministicPolicyGradient:
 
         for var in critic_variables:
             var.requires_grad = True
+            
 
-        return dict(loss=loss.detach())
+        return dict(loss=loss.detach(), entropy=entropy.detach())
 
 
 class MaximumAPosterioriPolicyOptimization:
@@ -538,5 +543,7 @@ class MaximumAPosterioriPolicyOptimization:
             alpha_mean_loss=alpha_mean_loss.detach(),
             alpha_std_loss=alpha_std_loss.detach(),
             temperature_loss=temperature_loss.detach(),
+            kl_mean=kl_mean.detach(),
+            kl_std=kl_std.detach(),
             **dual_variables,
         )
