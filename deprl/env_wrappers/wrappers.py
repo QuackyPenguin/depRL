@@ -95,7 +95,7 @@ class ExceptionWrapper(AbstractWrapper):
             return self.reset(**kwargs)
         return observation
 
-    def step(self, action):
+    def step(self, action, **kwargs):
         try:
             observation, reward, done, info = self._inner_step(action)
             if np.any(np.isnan(observation)):
@@ -107,7 +107,7 @@ class ExceptionWrapper(AbstractWrapper):
             reward = 0
             done = 1
             info = {}
-            self.reset()
+            self.reset(**kwargs)
         return observation, reward, done, info
 
     def _inner_step(self, action):

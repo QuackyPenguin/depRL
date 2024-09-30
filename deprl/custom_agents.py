@@ -45,7 +45,7 @@ def dep_factory(mix, instance):
         def step(
             self, observations, steps, muscle_states=None, greedy_episode=None
         ):
-            if isinstance(self.replay, replays.Segment) or steps > (self.replay.steps_before_batches / 1):
+            if steps > (self.replay.steps_before_batches / 1):
                 return super().step(observations, steps)
             actions = self.dep_step(muscle_states, steps)
             self.last_observations = observations.copy()
@@ -76,7 +76,7 @@ def dep_factory(mix, instance):
         def step(
             self, observations, steps, muscle_states=None, greedy_episode=None
         ):
-            if isinstance(self.replay, replays.Segment) or steps > (self.replay.steps_before_batches / 1):
+            if steps > (self.replay.steps_before_batches / 1):
                 if (
                     self.switch
                     and not self.since_switch % self.expl.intervention_length
@@ -112,7 +112,7 @@ def dep_factory(mix, instance):
         def step(
             self, observations, steps, muscle_states=None, greedy_episode=False
         ):
-            if isinstance(self.replay, replays.Segment) or steps > (self.replay.steps_before_batches / 1):
+            if steps > (self.replay.steps_before_batches / 1):
                 if greedy_episode:
                     return super(DetSwitchDep, self).step(
                         observations, steps, muscle_states

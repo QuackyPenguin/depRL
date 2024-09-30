@@ -2,6 +2,8 @@
 import os
 import traceback
 
+import numpy as np
+
 import torch
 
 from deprl import custom_distributed
@@ -33,6 +35,7 @@ def train(
         for env in tonic_conf["environments"].split(";")
     ]
     
+    print(f"Environments: {_environments}")
     environments = []
     
     for _environment in _environments:
@@ -43,28 +46,38 @@ def train(
         )
         environment.initialize(seed=tonic_conf["seed"] + len(environments))
         environments.append(environment)
-        
-    
+
     # Build the testing environment.
-    _test_environment = (
-        tonic_conf["test_environment"]
-        if "test_environment" in tonic_conf
-        and tonic_conf["test_environment"] is not None
-        else _environments[-1]
-    )
-    test_env_args = (
-        config["test_env_args"]
-        if "test_env_args" in config
-        else config["env_args"]
-    )
-    test_environment = custom_distributed.distribute(
-        environment=_test_environment,
-        tonic_conf=tonic_conf,
-        env_args=test_env_args,
-        parallel=1,
-        sequential=1,
-    )
-    test_environment.initialize(seed=tonic_conf["seed"] + 1000000)
+    
+    if "test_environment" in tonic_conf and tonic_conf["test_environment"] is not None:
+        _test_environment = tonic_conf["test_environment"]
+        test_env_args = (
+            config["test_env_args"]
+            if "test_env_args" in config
+            else config["env_args"]
+        )
+        test_environment = custom_distributed.distribute(
+            environment=_test_environment,
+            tonic_conf=tonic_conf,
+            env_args=test_env_args,
+            parallel=1,
+            sequential=1,
+        )
+        test_environment.initialize(seed=tonic_conf["seed"] + 1000000)
+        
+        test_environment.start()
+    else:
+        for _test_environment in _environments:
+            test_environment = custom_distributed.distribute(
+                environment=_environments[len(environments)-1],
+                tonic_conf=tonic_conf,
+                env_args=config["env_args"],
+                parallel=1,
+                sequential=1,
+            )
+            test_environment.initialize(seed=tonic_conf["seed"] + 1000000)
+
+            test_environment.start()
     
     # Build the agent.
     if "agent" not in tonic_conf or tonic_conf["agent"] is None:

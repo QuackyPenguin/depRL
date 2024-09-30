@@ -16,7 +16,7 @@ class Buffer:
         return_steps=1,
         batch_iterations=50,
         batch_size=100,
-        discount_factor=0.99,
+        discount_factor=0.999,
         steps_before_batches=int(1e4),
         steps_between_batches=50,
     ):

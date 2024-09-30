@@ -4,6 +4,8 @@ import time
 import numpy as np
 import torch
 
+from collections import deque
+
 from deprl.custom_test_environment import (
     test_dm_control,
     test_mujoco,
@@ -54,26 +56,44 @@ class Trainer:
         # Start the environments.
         observations_list = []
         muscle_states_list = []
+        # envs_parallel = []
+        
+
         for environment in self.environments:
             observations, muscle_states = environment.start()
             observations_list.append(observations)
             muscle_states_list.append(muscle_states)
+            
+            # envs_parallel.append(environment.get_envs())
 
         num_workers = len(observations)
         scores = np.zeros(num_workers)
         lengths = np.zeros(num_workers, int)
         unique_states = [set() for _ in range(num_workers)]
-        action_variances = np.array([0])
         self.steps, epoch_steps = steps, 0
         steps_since_save = 0
         
-        environment_turn = 0
+        length_percentages = []
+        velocities = []
+        angles = []
+        
+        environment_turn = self.agent.replay.last_env_index
+        angle_range = self.agent.replay.last_angle_range
+        vel_range = self.agent.replay.last_vel_range
+        stand_prob = self.agent.replay.last_stand_prob
+        task = self.agent.replay.last_task
 
         while True:
+                
             self.environment = self.environments[environment_turn]
-            muscle_states = muscle_states_list[environment_turn]
             observations = observations_list[environment_turn]
-            environment_turn = (environment_turn + 1) % self.number_of_environments
+            muscle_states = muscle_states_list[environment_turn]
+            
+            current_velocities = self.environment.get_vel()
+            current_angles = self.environment.get_angles()
+            
+            velocities.extend(current_velocities)
+            angles.extend(current_angles)
             
             # Select actions.
             if hasattr(self.agent, "expl"):
@@ -100,7 +120,10 @@ class Trainer:
             
 
             # Take a step in the environments.
-            observations, muscle_states, info = self.environment.step(actions)
+            observations, muscle_states, info = self.environment.step(actions, angle_range, vel_range, stand_prob, task)
+            observations_list[environment_turn] = observations
+            muscle_states_list[environment_turn] = muscle_states
+            
             if "env_infos" in info:
                 info.pop("env_infos")
             self.agent.update(**info, steps=self.steps)
@@ -124,6 +147,12 @@ class Trainer:
                     logger.store(
                         "train/episode_length", lengths[i], stats=True
                     )
+                    logger.store("train/environment_index", environment_turn)
+                    logger.store("train/angle_range", angle_range[1])
+                    logger.store("train/vel_range", vel_range[1])
+                    logger.store("train/stand_prob", stand_prob)
+                    logger.store("train/task", task)
+                    
                     if i == 0:
                         # adaptive energy cost
                         if hasattr(self.agent.replay, "action_cost"):
@@ -133,6 +162,7 @@ class Trainer:
                             )
                             self.agent.replay.adjust(scores[i])
                     
+                    length_percentages.append(lengths[i]/self.environment._max_episode_steps)
                     scores[i] = 0
                     lengths[i] = 0
                     episodes += 1
@@ -140,11 +170,12 @@ class Trainer:
                     logger.store("train/unique_states", len(unique_states[i]))
                     
                     unique_states[i] = set()
+                    
 
             # End of the epoch.
             if epoch_steps >= self.epoch_steps:
                 # Evaluate the agent on the test environment.
-                if self.test_environment:
+                if self.test_environment is not None:
                     if (
                         "control"
                         in str(
@@ -191,6 +222,15 @@ class Trainer:
                 epoch_steps = 0
 
                 logger.dump()
+                
+                environment_turn, angle_range, vel_range, stand_prob, task = self.agent.replay._curriculum_step(
+                                                                    num_envs = self.number_of_environments,
+                                                                    length_percentages = length_percentages, velocities = velocities, 
+                                                                    angles = angles, steps_per = self.steps / self.max_steps)
+                
+                velocities = []
+                angles = []
+                length_percentages = []
 
             # End of training.
             stop_training = self.steps >= self.max_steps

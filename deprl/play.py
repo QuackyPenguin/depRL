@@ -132,13 +132,13 @@ def play_gym(agent, environment, noisy, num_episodes, no_render):
 
 
 def play_scone(
-    agent, environment, noisy, num_episodes, no_render, checkpoint_path, name
+    agent, environment, noisy, num_episodes, no_render, checkpoint_path, name, lower_angle, higher_angle, lower_vel, higher_vel, stand_prob
 ):
     """Launches an agent in a Gym-based environment."""
     set_scone_save_path(checkpoint_path, environment, name)
     if not no_render:
         environment.store_next_episode()
-    observations = environment.reset()
+    observations = environment.reset(angle_range=(lower_angle, higher_angle), vel_range=(lower_vel, higher_vel), stand_prob=stand_prob)
     muscle_states = environment.muscle_states
 
     score = 0
@@ -182,10 +182,12 @@ def play_scone(
             print(f"Max reward: {max_reward:,.3f}")
             print(f"Global min reward: {min_reward:,.3f}")
             print(f"Global max reward: {max_reward:,.3f}")
+            print(f"Target velocity: {environment.current_target_vel}")
+            print(f"Target angle in degrees: {np.rad2deg(environment.angle)}")
             if not no_render:
                 environment.write_now()
                 environment.store_next_episode()
-            observations = environment.reset()
+            observations = environment.reset(angle_range=(lower_angle, higher_angle), vel_range=(lower_vel, higher_vel))
             muscle_states = environment.muscle_states
 
             score = 0
@@ -300,6 +302,11 @@ def play(
     no_render,
     num_episodes,
     checkpoint_file,
+    lower_angle,
+    higher_angle,
+    lower_vel,
+    higher_vel,
+    stand_prob,
 ):
     """Reloads an agent and an environment from a previous experiment."""
 
@@ -313,6 +320,7 @@ def play(
     # Get important info from config
     header = header or config["tonic"]["header"]
     agent = agent or config["tonic"]["agent"]
+    
     environment = environment or config["tonic"]["test_environment"]
     environment = environment or config["tonic"]["environment"]
 
@@ -361,6 +369,11 @@ def play(
             no_render,
             checkpoint_path,
             config["tonic"]["name"],
+            lower_angle,
+            higher_angle,
+            lower_vel,
+            higher_vel,
+            stand_prob,
         )
     else:
         play_gym(agent, environment, noisy, num_episodes, no_render)
@@ -379,6 +392,11 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_file", default=None)
     parser.add_argument("--checkpoint", default="last")
     parser.add_argument("--environment", "--env")
+    parser.add_argument("--lower_angle", type=float, default=-np.pi)
+    parser.add_argument("--higher_angle", type=float, default=np.pi)
+    parser.add_argument("--lower_vel", type=float, default=0.25)
+    parser.add_argument("--higher_vel", type=float, default=1.25)
+    parser.add_argument("--stand_prob", type=float, default=0.0)
     args = vars(parser.parse_args())
     check_args(args)
     play(**args)

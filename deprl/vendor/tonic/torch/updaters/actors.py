@@ -273,7 +273,7 @@ class TwinCriticSoftDeterministicPolicyGradient:
             log_probs = distributions.log_prob(actions)
         log_probs = log_probs.sum(dim=-1)
         
-        entropy = -log_probs.mean()
+        entropy = log_probs.mean()
         
         values_1 = self.model.critic_1(observations, actions)
         values_2 = self.model.critic_2(observations, actions)

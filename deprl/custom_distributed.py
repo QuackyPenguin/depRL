@@ -5,6 +5,7 @@ import numpy as np
 
 from deprl.utils import stdout_suppression
 
+i = 0
 
 def proc(
     action_pipe,
@@ -16,6 +17,7 @@ def proc(
     workers,
     env_args,
     header,
+    env_queue
 ):
     """Process holding a sequential group of environments."""
     envs = Sequential(build_dict, max_episode_steps, workers, env_args, header)
@@ -23,10 +25,31 @@ def proc(
 
     observations = envs.start()
     output_queue.put((index, observations))
-
+    
     while True:
-        actions = action_pipe.recv()
-        out = envs.step(actions)
+        message = action_pipe.recv()
+        
+        if isinstance(message, str):
+            if message == "get_head_pos":
+                for env in envs.environments:
+                    env_queue.put(env.unwrapped.head_body.com_pos().array())
+            elif message == "get_model_pos":
+                for env in envs.environments:
+                    env_queue.put(env.unwrapped.model.contact_power())
+            elif message == "get_vel":
+                for env in envs.environments:
+                    env_queue.put((env.unwrapped.model_velocity(), env.unwrapped.current_target_vel)) 
+            elif message == "get_angle":
+                for env in envs.environments:
+                    env_queue.put((np.arctan2(env.unwrapped.model.com_vel().z, env.unwrapped.model.com_vel().x), env.unwrapped.angle))
+                    
+            continue
+        
+        # message is a tuple of actions, angle_range, and vel_range
+        
+        actions, angle_range, vel_range, stand_prob, new_task = message
+                
+        out = envs.step(actions, angle_range, vel_range, stand_prob, new_task)
         output_queue.put((index, out))
 
 
@@ -72,7 +95,7 @@ class Sequential:
             muscle_states, np.float32
         )
 
-    def step(self, actions):
+    def step(self, actions, angle_range: tuple = (-np.pi/4, np.pi/4), vel_range: tuple = (0.25, 1.0), stand_prob: float = 0.0, new_task : int = 0):
         next_observations = []  # Observations for the transitions.
         rewards = []
         resets = []
@@ -81,7 +104,8 @@ class Sequential:
         muscle_states = []
 
         for i in range(len(self.environments)):
-            ob, rew, term, env_info = self.environments[i].step(actions[i])
+            ob, rew, term, env_info = self.environments[i].step(actions[i], angle_range = angle_range, vel_range = vel_range, 
+                                                                stand_prob = stand_prob, new_task = new_task)
             muscle = self.environments[i].muscle_states
             self.lengths[i] += 1
             # Timeouts trigger resets but are not true terminations.
@@ -93,7 +117,7 @@ class Sequential:
             terminations.append(term)
 
             if reset:
-                ob = self.environments[i].reset()
+                ob = self.environments[i].reset(angle_range = angle_range, vel_range = vel_range, stand_prob = stand_prob, new_task = new_task)
                 muscle = self.environments[i].muscle_states
                 self.lengths[i] = 0
 
@@ -155,6 +179,7 @@ class Parallel:
         # spawn works across all operating systems
         context = multiprocessing.get_context("spawn")
         self.output_queue = context.Queue()
+        self.env_queue = context.Queue()
         self.action_pipes = []
         self.processes = []
 
@@ -174,6 +199,7 @@ class Parallel:
                 "max_episode_steps": self._max_episode_steps,
                 "index": i,
                 "workers": self.workers_per_group,
+                "env_queue": self.env_queue,
                 "env_args": self.env_args
                 if hasattr(self, "env_args")
                 else None,
@@ -218,10 +244,10 @@ class Parallel:
             self.muscle_states_list
         )
 
-    def step(self, actions):
+    def step(self, actions, angle_range: tuple = (-np.pi/4, np.pi/4), vel_range: tuple = (0.25, 1.0), stand_prob: float = 0.0, new_task : int = 0):
         actions_list = np.split(actions, self.worker_groups)
         for actions, pipe in zip(actions_list, self.action_pipes):
-            pipe.send(actions)
+            pipe.send((actions, angle_range, vel_range, stand_prob, new_task))
 
         for _ in range(self.worker_groups):
             index, (
@@ -248,6 +274,47 @@ class Parallel:
 
     def close(self):
         self.proc.terminate()
+    
+    def get_head_pos(self):
+        for pipe in self.action_pipes:
+            pipe.send("get_head_pos")
+        heads = []
+        for _ in self.action_pipes:
+            for _ in range(self.workers_per_group):
+                heads.append(self.env_queue.get())
+            
+        return heads
+
+    def get_model_pos(self):
+        for pipe in self.action_pipes:
+            pipe.send("get_model_pos")
+        models = []
+        for _ in self.action_pipes:
+            for _ in range(self.workers_per_group):
+                models.append(self.env_queue.get())
+    
+    def get_vel(self):
+        for pipe in self.action_pipes:
+            pipe.send("get_vel")
+        vels = []
+        for _ in self.action_pipes:
+            for _ in range(self.workers_per_group):
+                vels.append(self.env_queue.get())
+            
+        return vels
+    
+    def get_angles(self):
+        for pipe in self.action_pipes:
+            pipe.send("get_angle")
+        angles = []
+        for _ in self.action_pipes:
+            for _ in range(self.workers_per_group):
+                angles.append(self.env_queue.get())
+            
+        return angles
+    
+    def curriculum_adjust(self, score):
+        pass
 
 
 def distribute(
@@ -290,7 +357,7 @@ def build_env_from_dict(build_dict):
     assert build_dict["env"] is not None
     if type(build_dict) == dict:
         from deprl import env_tonic_compat
-
+    
         return env_tonic_compat(**build_dict)
     else:
         return build_dict()
