@@ -1,4 +1,5 @@
 """Script used to train agents on a curriculum."""
+
 import os
 import traceback
 
@@ -18,26 +19,26 @@ def train(
     Trains an agent on environments from a curriculum.
     """
     tonic_conf = config["tonic"]
-    
+
     # Run the header first, e.g. to load an ML framework.
     if "header" in tonic_conf:
         exec(tonic_conf["header"])
-        
+
     # In case no env_args are passed via the config
     if "env_args" not in config or config["env_args"] is None:
         config["env_args"] = {}
-        
+
     # Make a list of environment names.
     if "environments" not in tonic_conf or tonic_conf["environments"] is None:
         raise ValueError("No environments specified.")
     _environments = [
-        env.strip()
-        for env in tonic_conf["environments"].split(";")
+        env.strip() for env in tonic_conf["environments"].split(";")
     ]
-    
+
+    # get all of the environments, curriculum changes between them
     print(f"Environments: {_environments}")
     environments = []
-    
+
     for _environment in _environments:
         environment = custom_distributed.distribute(
             environment=_environment,
@@ -48,8 +49,11 @@ def train(
         environments.append(environment)
 
     # Build the testing environment.
-    
-    if "test_environment" in tonic_conf and tonic_conf["test_environment"] is not None:
+
+    if (
+        "test_environment" in tonic_conf
+        and tonic_conf["test_environment"] is not None
+    ):
         _test_environment = tonic_conf["test_environment"]
         test_env_args = (
             config["test_env_args"]
@@ -64,12 +68,12 @@ def train(
             sequential=1,
         )
         test_environment.initialize(seed=tonic_conf["seed"] + 1000000)
-        
+
         test_environment.start()
     else:
         for _test_environment in _environments:
             test_environment = custom_distributed.distribute(
-                environment=_environments[len(environments)-1],
+                environment=_environments[len(environments) - 1],
                 tonic_conf=tonic_conf,
                 env_args=config["env_args"],
                 parallel=1,
@@ -78,20 +82,19 @@ def train(
             test_environment.initialize(seed=tonic_conf["seed"] + 1000000)
 
             test_environment.start()
-    
+
     # Build the agent.
     if "agent" not in tonic_conf or tonic_conf["agent"] is None:
         raise ValueError("No agent specified.")
     agent = eval(tonic_conf["agent"])
-    
+
     # check if all environments have the same observation and action space
     for environment in environments:
         if environment.observation_space != environments[0].observation_space:
             raise ValueError("Environments have different observation spaces.")
         if environment.action_space != environments[0].action_space:
             raise ValueError("Environments have different action spaces.")
-    
-    
+
     # Set custom parameters
     if "model_args" in config:
         agent.set_custom_params(config["model_args"])
@@ -100,11 +103,11 @@ def train(
         action_space=environments[-1].action_space,
         seed=tonic_conf["seed"],
     )
-    
+
     # Set DEP parameters
     if hasattr(agent, "expl") and "DEP" in config:
         agent.set_dep_params(**config["DEP"])
-        
+
     # Initialize the logger to get paths
     logger.initialize(
         script_path=__file__,
@@ -113,10 +116,10 @@ def train(
         resume=tonic_conf["resume"],
     )
     path = logger.get_path()
-    
+
     # Process the checkpoin path same way as in tonic_conf.play
     checkpoint_path = os.path.join(path, "checkpoint.pth")
-    
+
     time_dict = {"steps": 0, "epochs": 0, "episodes": 0}
     (
         _,
@@ -130,7 +133,7 @@ def train(
         logger.load(checkpoint_path, time_dict)
         # Load the weights of the agent form a checkpoint.
         agent.load(checkpoint_path)
-        
+
     # Build the trainer.
     trainer = tonic_conf["trainer"] or "tonic_conf.Trainer()"
     trainer = eval(trainer)
@@ -155,7 +158,7 @@ def train(
     # Run some code after training.
     if tonic_conf["after_training"]:
         exec(["after_training"])
-    
+
 
 def set_tensor_device():
     # use CUDA or apple metal

@@ -132,13 +132,28 @@ def play_gym(agent, environment, noisy, num_episodes, no_render):
 
 
 def play_scone(
-    agent, environment, noisy, num_episodes, no_render, checkpoint_path, name, lower_angle, higher_angle, lower_vel, higher_vel, stand_prob
+    agent,
+    environment,
+    noisy,
+    num_episodes,
+    no_render,
+    checkpoint_path,
+    name,
+    lower_angle,
+    higher_angle,
+    lower_vel,
+    higher_vel,
+    stand_prob,
 ):
     """Launches an agent in a Gym-based environment."""
     set_scone_save_path(checkpoint_path, environment, name)
     if not no_render:
         environment.store_next_episode()
-    observations = environment.reset(angle_range=(lower_angle, higher_angle), vel_range=(lower_vel, higher_vel), stand_prob=stand_prob)
+    observations = environment.reset(
+        angle_range=(lower_angle, higher_angle),
+        vel_range=(lower_vel, higher_vel),
+        stand_prob=stand_prob,
+    )
     muscle_states = environment.muscle_states
 
     score = 0
@@ -187,7 +202,10 @@ def play_scone(
             if not no_render:
                 environment.write_now()
                 environment.store_next_episode()
-            observations = environment.reset(angle_range=(lower_angle, higher_angle), vel_range=(lower_vel, higher_vel))
+            observations = environment.reset(
+                angle_range=(lower_angle, higher_angle),
+                vel_range=(lower_vel, higher_vel),
+            )
             muscle_states = environment.muscle_states
 
             score = 0
@@ -320,7 +338,7 @@ def play(
     # Get important info from config
     header = header or config["tonic"]["header"]
     agent = agent or config["tonic"]["agent"]
-    
+
     environment = environment or config["tonic"]["test_environment"]
     environment = environment or config["tonic"]["environment"]
 
@@ -392,10 +410,12 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_file", default=None)
     parser.add_argument("--checkpoint", default="last")
     parser.add_argument("--environment", "--env")
+    # The range for choosing the random angle and velocity
     parser.add_argument("--lower_angle", type=float, default=-np.pi)
     parser.add_argument("--higher_angle", type=float, default=np.pi)
     parser.add_argument("--lower_vel", type=float, default=0.25)
     parser.add_argument("--higher_vel", type=float, default=1.25)
+    # The probability of getting the stand task (velocity = 0)
     parser.add_argument("--stand_prob", type=float, default=0.0)
     args = vars(parser.parse_args())
     check_args(args)

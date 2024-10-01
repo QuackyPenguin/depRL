@@ -45,7 +45,7 @@ class Trainer:
         self.environments = environments
         self.test_environment = test_environment
         self.number_of_environments = len(environments)
-        
+
         self.environment = None
 
     def run(self, params, steps=0, epochs=0, episodes=0):
@@ -56,15 +56,11 @@ class Trainer:
         # Start the environments.
         observations_list = []
         muscle_states_list = []
-        # envs_parallel = []
-        
 
         for environment in self.environments:
             observations, muscle_states = environment.start()
             observations_list.append(observations)
             muscle_states_list.append(muscle_states)
-            
-            # envs_parallel.append(environment.get_envs())
 
         num_workers = len(observations)
         scores = np.zeros(num_workers)
@@ -72,11 +68,13 @@ class Trainer:
         unique_states = [set() for _ in range(num_workers)]
         self.steps, epoch_steps = steps, 0
         steps_since_save = 0
-        
+
+        # keep track of data that can be used to update the curriculum
         length_percentages = []
         velocities = []
         angles = []
-        
+
+        # get the initial curriculum parameters
         environment_turn = self.agent.replay.last_env_index
         angle_range = self.agent.replay.last_angle_range
         vel_range = self.agent.replay.last_vel_range
@@ -84,17 +82,17 @@ class Trainer:
         task = self.agent.replay.last_task
 
         while True:
-                
+
             self.environment = self.environments[environment_turn]
             observations = observations_list[environment_turn]
             muscle_states = muscle_states_list[environment_turn]
-            
+
             current_velocities = self.environment.get_vel()
             current_angles = self.environment.get_angles()
-            
+
             velocities.extend(current_velocities)
             angles.extend(current_angles)
-            
+
             # Select actions.
             if hasattr(self.agent, "expl"):
                 greedy_episode = (
@@ -109,21 +107,24 @@ class Trainer:
             assert not np.isnan(actions.sum())
             # raise Exception(f'{type(self.environment.environments[0])}')
             logger.store("train/action", actions, stats=True)
-            
+
             # action variance is calculated as the mean of the variances of each column (muscle activation of every agent action)
             action_variance = np.var(actions, axis=0)
             # store the mean of the action variance
-            logger.store("train/action_variance", action_variance.mean(), stats=True)
-            
+            logger.store(
+                "train/action_variance", action_variance.mean(), stats=True
+            )
+
             for i, obs in enumerate(observations):
                 unique_states[i].add(tuple(obs.flatten()))
-            
 
             # Take a step in the environments.
-            observations, muscle_states, info = self.environment.step(actions, angle_range, vel_range, stand_prob, task)
+            observations, muscle_states, info = self.environment.step(
+                actions, angle_range, vel_range, stand_prob, task
+            )
             observations_list[environment_turn] = observations
             muscle_states_list[environment_turn] = muscle_states
-            
+
             if "env_infos" in info:
                 info.pop("env_infos")
             self.agent.update(**info, steps=self.steps)
@@ -147,12 +148,13 @@ class Trainer:
                     logger.store(
                         "train/episode_length", lengths[i], stats=True
                     )
+                    # store the current environment parameters
                     logger.store("train/environment_index", environment_turn)
                     logger.store("train/angle_range", angle_range[1])
                     logger.store("train/vel_range", vel_range[1])
                     logger.store("train/stand_prob", stand_prob)
                     logger.store("train/task", task)
-                    
+
                     if i == 0:
                         # adaptive energy cost
                         if hasattr(self.agent.replay, "action_cost"):
@@ -161,16 +163,17 @@ class Trainer:
                                 self.agent.replay.action_cost,
                             )
                             self.agent.replay.adjust(scores[i])
-                    
-                    length_percentages.append(lengths[i]/self.environment._max_episode_steps)
+
+                    length_percentages.append(
+                        lengths[i] / self.environment._max_episode_steps
+                    )
                     scores[i] = 0
                     lengths[i] = 0
                     episodes += 1
-                    
+
                     logger.store("train/unique_states", len(unique_states[i]))
-                    
+
                     unique_states[i] = set()
-                    
 
             # End of the epoch.
             if epoch_steps >= self.epoch_steps:
@@ -222,12 +225,18 @@ class Trainer:
                 epoch_steps = 0
 
                 logger.dump()
-                
-                environment_turn, angle_range, vel_range, stand_prob, task = self.agent.replay._curriculum_step(
-                                                                    num_envs = self.number_of_environments,
-                                                                    length_percentages = length_percentages, velocities = velocities, 
-                                                                    angles = angles, steps_per = self.steps / self.max_steps)
-                
+
+                # update the curriculum, once per epoch
+                environment_turn, angle_range, vel_range, stand_prob, task = (
+                    self.agent.replay._curriculum_step(
+                        num_envs=self.number_of_environments,
+                        length_percentages=length_percentages,
+                        velocities=velocities,
+                        angles=angles,
+                        steps_per=self.steps / self.max_steps,
+                    )
+                )
+
                 velocities = []
                 angles = []
                 length_percentages = []
