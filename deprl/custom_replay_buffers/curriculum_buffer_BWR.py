@@ -4,7 +4,7 @@ from deprl.vendor.tonic import logger
 from deprl.vendor.tonic.replays import Buffer
 
 
-class CurriculumBuffer(Buffer):
+class CurriculumBufferBWR(Buffer):
     """
     Assume all activity is appended at the end of the observation.
     True for Myosuite and scone so far.
@@ -21,7 +21,7 @@ class CurriculumBuffer(Buffer):
         # initialize the environment index, angle range, velocity range, and standing probability
         self.last_env_index = 0
         self.last_angle_range = (0, 0)
-        self.last_vel_range = (1, 1)
+        self.last_vel_range = (0,0) #(1, 1)
         self.last_stand_prob = 0
         # 0 - target task, 1 - velocity task, 2 - orientation task
         # initial task is for the 4 year old
@@ -52,6 +52,7 @@ class CurriculumBuffer(Buffer):
         length_percentages=None,
         angles=None,
         steps_per=0,
+        reward_scale=1,
     ):
         """Perform a curriculum step. Update the environment index, angle range, and velocity range.
 
@@ -84,8 +85,8 @@ class CurriculumBuffer(Buffer):
                 "velocities cannot be None to perform a curriculum step."
             )
 
-        env_0_threshold = [0.35, 0.2]
-        env_1_threshold = 0.2
+        env_0_threshold = [0.7,0.35] #[0.35, 0.2]
+        env_1_threshold = 0.4 # for 2.5e7 steps total until 1e7 in 4-year-old then adult 
 
         if self.no_switch > 0:
             self.no_switch -= 1
@@ -94,7 +95,7 @@ class CurriculumBuffer(Buffer):
             # change the environment based on the average length percentage of an episode
             avg_length_percentage = np.mean(length_percentages)
             if self.last_env_index == 0:
-                if avg_length_percentage >= env_0_threshold[0]:
+                if avg_length_percentage >= env_0_threshold[0] and self.last_vel_range[1] > 0.7:	
                     self.last_env_index = 1
             elif self.last_env_index == 1:
                 if avg_length_percentage <= env_0_threshold[1]:
@@ -111,47 +112,61 @@ class CurriculumBuffer(Buffer):
         if self.last_env_index != old_env_index:
             self.no_switch = 5
 
-        target_0_threshold = [0.6, 0.15]
+        target_0_threshold = [0.5,0.3] #[0.3,0.2] #[0.5, 0.15] #0.6
         # target_1_threshold[0] = env_1_threshold, so that the ranges are not changed until the environment is switched to the adult
-        target_1_threshold = [0.2, 0.4, 0.6]
+        target_1_threshold =[0.08, 0.16, 0.24, 0.32, 0.4] #[0.08, 0.16, 0.4] # for 2.5e7 steps total until 1e7 in 4-year-old (B-W-R) then adult (R)
 
+        # print('reward_scale buffer', reward_scale)
         if self.mode_target == 0:
             # increase the velocity range if the average difference between the current and target velocities is below a threshold
             vel_percent_diffs = [
-                abs(velocity[0] - velocity[1]) / (velocity[1] + 0.0001)
+                abs(velocity[0] - velocity[1])/reward_scale #/ (velocity[1] + 0.0001)
                 for velocity in velocities
             ]
+            # Velocities and angles in all epoch steps (length is 2e5)
+            # print('len(velocities)', len(velocities))
+            
+            # print('velocity[1]', [velocity[1] for velocity in velocities])
+            # print('velocity[0]', [velocity[0] for velocity in velocities])
             # increase the angle range if the average difference between the current and target angles is below a threshold
             angle_percent_diffs = [
                 abs(angle[0] - angle[1]) / np.pi for angle in angles
             ]
+            # print('angle[0]',[angle[0] for angle in angles])
+            # print('angle[1]',[angle[1] for angle in angles])
+
+            print('len(angles)', len(angles))
 
             # only take the lowest 3/4 of the percentages, to avoid initial outliers
-            vel_percent_diff = np.mean(
-                vel_percent_diffs[: int(len(vel_percent_diffs) * 3 / 4)]
-            )
-            print('vel_percent_diff', vel_percent_diff)
+            vel_percent_diff = np.mean(vel_percent_diffs)
+            # np.mean(
+            #     vel_percent_diffs[: int(len(vel_percent_diffs) * 3 / 4)]
+            # )
 
-            angle_percent_diff = np.mean(
-                angle_percent_diffs[: int(len(angle_percent_diffs) * 3 / 4)]
-            )
-            print('angle_percent_diff', angle_percent_diff)
+            # print('vel_percent_diff', vel_percent_diff)
+            angle_percent_diff = np.mean(angle_percent_diffs)
+            # np.mean(
+            #     angle_percent_diffs[: int(len(angle_percent_diffs) * 3 / 4)]
+            # )
+            # print('angle_percent_diff', angle_percent_diff)
 
             if vel_percent_diff <= target_0_threshold[0]:
-                vel_percent = min(1.25, self.last_vel_range[1] + 0.05)
-                self.last_vel_range = (0.25, vel_percent)
-            print('vel_percent', vel_percent)
+                vel_percent = min(1.25, self.last_vel_range[1] + 0.2) #0.05
+                self.last_vel_range = (0, vel_percent) #(0.25, vel_percent)
+
+                print('vel_percent change', vel_percent)
 
             if angle_percent_diff <= target_0_threshold[1]:
                 angle_percent = min(
-                    np.pi, self.last_angle_range[1] + np.pi / 32
+                    np.pi, self.last_angle_range[1] + np.pi / 18 #16 #32
                 )
                 self.last_angle_range = (-angle_percent, angle_percent)
-            print('angle_percent', angle_percent)
+
+                print('angle_percent change', angle_percent)
 
         elif self.mode_target == 1:
             # increase the ranges based on the number of steps, but not simultaneously
-            if steps_per >= target_1_threshold[0]:
+            if steps_per <= target_1_threshold[0]:
                 vel_percent = min(1, (steps_per - target_1_threshold[0]) / 0.2)
                 self.last_vel_range = (
                     1 - 0.75 * vel_percent,
@@ -160,7 +175,7 @@ class CurriculumBuffer(Buffer):
                 # while increasing the velocity range, the velocity task is selected
                 self.last_task = 1
 
-            if steps_per >= target_1_threshold[1]:
+            if steps_per <= target_1_threshold[1] and steps_per > target_1_threshold[0]:
                 angle_percent = min(
                     1, (steps_per - target_1_threshold[1]) / 0.2
                 )
@@ -171,11 +186,15 @@ class CurriculumBuffer(Buffer):
                 # while increasing the angle range, the orientation task is selected
                 self.last_task = 2
 
-            if steps_per >= target_1_threshold[2]:
-                self.last_stand_prob = 1 - 0.95 * min(
-                    1, (steps_per - target_1_threshold[2]) / 0.2
-                )
-                # while changing the standing probability and in the last phase, the combined task is selected
+            if steps_per > target_1_threshold[1] and steps_per <= target_1_threshold[2]:
+                self.last_task = 3
+
+            if steps_per > target_1_threshold[2] and steps_per <= target_1_threshold[3]:
+                self.last_task = 4
+            
+            if steps_per > target_1_threshold[3] and steps_per <= target_1_threshold[4]:
+                self.last_task = 5
+            if steps_per > target_1_threshold[4]:
                 self.last_task = 0
 
         return (

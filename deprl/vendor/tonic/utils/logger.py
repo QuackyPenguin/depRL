@@ -8,6 +8,8 @@ import termcolor
 import torch
 import yaml
 
+import gym
+
 from deprl.vendor.tonic.utils import normalize_path_decorator
 
 current_logger = None
@@ -82,6 +84,48 @@ class Logger:
         )
         self.log_file_path = os.path.join(self.path, "log.csv")
 
+        # print('env', env)
+        # get env attributes 
+        if env is not None:
+            # print('env.unwrapped', env.unwrapped)
+            # print('env.unwrapped.unwrapped', env.unwrapped.unwrapped)
+
+            env_spec = gym.envs.registry.spec(env.spec.id)
+
+            # print('env_spec', env_spec)
+
+            if 'BAWR' in env.spec.id:
+                env_path='/home/nadinebadie/denis/sconegym/sconegym/directiongym_BAWR.py'
+                env_name = 'directiongym_BAWR.py'
+            elif 'BWR' in env.spec.id:
+                env_path='/home/nadinebadie/denis/sconegym/sconegym/directiongym_BWR.py'
+                env_name = 'directiongym_BWR.py'
+            elif 'BWR_org' in env_spec.id:
+                env_path='/home/nadinebadie/denis/sconegym/sconegym/directiongym_BWR_org.py'
+                env_name = 'directiongym_BWR_org.py'
+            elif 'BWR_twoRew' in env_spec.id:
+                env_path='/home/nadinebadie/denis/sconegym/sconegym/directiongym_BWR_twoRew_org.py'
+                env_name = 'directiongym_BWR_twoRew_org.py'
+            elif 'org' in env_spec.id:
+                env_path='/home/nadinebadie/denis/sconegym/sconegym/directiongym_org.py'
+                env_name = 'directiongym_org.py'
+            elif 'auto' in env_spec.id:
+                env_path='/home/nadinebadie/denis/sconegym/sconegym/directiongym_auto.py'
+                env_name = 'directiongym_auto.py'
+
+
+            if env_path:
+                with open(env_path, 'r') as env_file:
+                    env_file_content = env_file.read()
+                    try:
+                        os.makedirs(self.path, exist_ok=True)
+                    except Exception:
+                            pass
+                    env_file_path = os.path.join(self.path, env_name)
+                    with open(env_file_path, "w") as config_file:
+                        config_file.write(env_file_content)
+                    log(f"Env file saved to {env_file_path}")
+
         # Save the launch script.
         if script_path:
             with open(script_path, "r") as script_file:
@@ -94,6 +138,7 @@ class Logger:
                 with open(script_path, "w") as config_file:
                     config_file.write(script)
                 log(f"Script file saved to {script_path}")
+
 
         # Save the configuration.
         if config:

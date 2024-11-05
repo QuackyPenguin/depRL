@@ -156,8 +156,8 @@ def train(
         traceback.print_tb(e.__traceback__)
 
     # Run some code after training.
-    if tonic_conf["after_training"]:
-        exec(["after_training"])
+    # if tonic_conf["after_training"]:
+    #     exec(["after_training"])
 
 
 def set_tensor_device():

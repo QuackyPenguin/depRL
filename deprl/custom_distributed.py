@@ -6,6 +6,7 @@ import numpy as np
 
 from deprl.utils import stdout_suppression
 
+
 i = 0
 
 
@@ -39,8 +40,17 @@ def proc(
             elif message == "get_model_pos":
                 for env in envs.environments:
                     env_queue.put(env.unwrapped.model.contact_power())
-            elif message == "get_vel":
+            elif message == "get_reward_scale":
                 for env in envs.environments:
+                    env_queue.put(env.unwrapped.reward_scale)
+            elif message == "get_vel":
+                # print('message get_vel', message)
+                for env in envs.environments:
+                    # print('env get_vel', env)
+                    # print('env_queue', env_queue)
+                    # print('env_queue.put', env_queue.put)
+                    # env.unwrapped.set_current_target_velocity(1) # Test setting vel for testing
+                    #print('current_target_vel:', env.unwrapped.get_current_target_velocity())
                     env_queue.put(
                         (
                             env.unwrapped.model_velocity(),
@@ -48,7 +58,10 @@ def proc(
                         )
                     )
             elif message == "get_angle":
+                # index_test=0
                 for env in envs.environments:
+                    # print('env index', index_test)
+                    # index_test+=1
                     env_queue.put(
                         (
                             np.arctan2(
@@ -64,7 +77,12 @@ def proc(
         # message is a tuple of actions, angle_range, and vel_range
         # those are the parameters for the step method
 
+        # print('custom_distributed len message', len(message))
+
         actions, angle_range, vel_range, stand_prob, new_task = message
+
+        # print('custom_distributed angle_range', angle_range)
+        # print('custom_distributed vel_range', vel_range)
 
         out = envs.step(actions, angle_range, vel_range, stand_prob, new_task)
         output_queue.put((index, out))
@@ -245,6 +263,7 @@ class Parallel:
             )
             self.processes[-1].daemon = True
             self.processes[-1].start()
+            #print(f"Initializing {self.worker_groups} worker groups with {self.workers_per_group} workers each.")
 
     def start(self):
         """Used once to get the initial observations."""
@@ -277,6 +296,7 @@ class Parallel:
         return np.concatenate(self.observations_list), np.concatenate(
             self.muscle_states_list
         )
+    
 
     def step(
         self,
@@ -311,10 +331,13 @@ class Parallel:
             resets=np.concatenate(self.resets_list),
             terminations=np.concatenate(self.terminations_list),
         )
+        # print(f"Sending actions to workers: {actions}")
         return observations, muscle_states, infos
 
     def close(self):
+        print("Before Terminating processes...")
         self.proc.terminate()
+        print("After Terminating processes...")
 
     def get_head_pos(self):
         for pipe in self.action_pipes:
@@ -343,6 +366,25 @@ class Parallel:
                 vels.append(self.env_queue.get())
 
         return vels
+    
+    def get_reward_scale(self):
+        # print("Requesting reward_scale from workers...")
+        for pipe in self.action_pipes:
+            pipe.send("get_reward_scale")
+        reward_scaled = []
+        for _ in self.action_pipes:
+            for _ in range(self.workers_per_group):
+                reward_scaled.append(self.env_queue.get())
+                # print('self.env_queue:', self.env_queue.unwrapped)
+                # try:
+                #     scale = self.env_queue.get(timeout=5)  # Set a timeout
+                #     print(f"Received reward_scale: {scale}")
+                #     reward_scales.append(scale)
+                # except self.env_queue.Empty:
+                #     print("No response from worker within timeout period.")
+        
+        # print("Completed collecting reward_scale.")
+        return reward_scaled[0]
 
     def get_angles(self):
         for pipe in self.action_pipes:

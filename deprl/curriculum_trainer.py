@@ -10,6 +10,7 @@ from deprl.custom_test_environment import (
     test_dm_control,
     test_mujoco,
     test_scone,
+    #test_scone_vel,
 )
 from deprl.vendor.tonic import logger
 
@@ -88,7 +89,12 @@ class Trainer:
             muscle_states = muscle_states_list[environment_turn]
 
             current_velocities = self.environment.get_vel()
+            #test_scone_vel(self.test_environment, self.agent, steps, params)
+            #self.environment.get_vel()
             current_angles = self.environment.get_angles()
+            reward_scale=self.environment.get_reward_scale()
+
+            # print('reward_scale curr trainer:', reward_scale)
 
             velocities.extend(current_velocities)
             angles.extend(current_angles)
@@ -207,6 +213,7 @@ class Trainer:
                         _ = test_mujoco(
                             self.test_environment, self.agent, steps, params
                         )
+                # print('test_scone', test_scone(self.test_environment, self.agent, steps, params))
 
                 # Log the data.
                 epochs += 1
@@ -234,6 +241,7 @@ class Trainer:
                         velocities=velocities,
                         angles=angles,
                         steps_per=self.steps / self.max_steps,
+                        reward_scale=reward_scale,
                     )
                 )
 
@@ -267,10 +275,11 @@ class Trainer:
                 return scores
 
     def close_mp_envs(self):
-        for index in range(len(self.environment.processes)):
-            self.environment.processes[index].terminate()
-            self.environment.action_pipes[index].close()
-        self.environment.output_queue.close()
+        for environment in self.environments:
+            for index in range(len(environment.processes)):
+                environment.processes[index].terminate()
+                environment.action_pipes[index].close()
+            environment.output_queue.close()
 
     def save_time(self, path, epochs, episodes):
         time_path = self.get_path(path, "time")

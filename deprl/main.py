@@ -25,6 +25,8 @@ def train(
     if "env_args" not in config or config["env_args"] is None:
         config["env_args"] = {}
 
+    print(f"tonic_config: {tonic_conf}")
+
     # Build the training environment.
     _environment = tonic_conf["environment"]
     environment = custom_distributed.distribute(
@@ -119,6 +121,8 @@ def train(
     except Exception as e:
         logger.log(f"trainer failed. Exception: {e}")
         traceback.print_tb(e.__traceback__)
+
+    print('After trianing in main')
 
     # Run some code after training.
     if tonic_conf["after_training"]:
