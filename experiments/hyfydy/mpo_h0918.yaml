@@ -7,7 +7,7 @@ tonic:
   checkpoint: "last"
   environment: "deprl.environments.Gym('sconerun_BWR_org_h0918addAbd-v1', scaled_actions=False)"
   full_save: 1
-  name: "denis/curr_auto_oneRew"
+  name: "Fvalentin/curr_auto_oneRew"
   resume: true
   seed: 0
   parallel: 20
