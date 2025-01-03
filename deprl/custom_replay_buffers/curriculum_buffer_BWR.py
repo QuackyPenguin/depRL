@@ -19,6 +19,7 @@ class CurriculumBufferBWR(Buffer):
         self.no_switch = 0
 
         # initialize the environment index, angle range, velocity range, and standing probability
+        self.epochs_above_threshold = 0
         self.last_env_index = 0
         self.last_angle_range = (0, 0)
         self.last_vel_range = (0,0) #(1, 1)
@@ -31,11 +32,11 @@ class CurriculumBufferBWR(Buffer):
         self.mode_env = kwargs.pop("mode_env", 0)
         self.mode_target = kwargs.pop("mode_target", 0)
 
-        if self.mode_env not in [0, 1]:
+        if self.mode_env not in [0, 1, 2, 3, 4]:
             raise Exception(
                 f"Mode {self.mode_env} of the environment is not implemented."
             )
-        if self.mode_target not in [0, 1]:
+        if self.mode_target not in [0, 1, 2]:
             raise Exception(
                 f"Mode {self.mode_target} of the targets is not implemented."
             )
@@ -50,6 +51,8 @@ class CurriculumBufferBWR(Buffer):
         num_envs=2,
         velocities=None,
         length_percentages=None,
+        rewards=None,
+        critic_qs=None,
         angles=None,
         steps_per=0,
         reward_scale=1,
@@ -60,6 +63,8 @@ class CurriculumBufferBWR(Buffer):
             num_envs (int): The number of environments in the curriculum.
             velocities (list): The list of the tuples of the current and target velocities of the tasks.
             length_percentages (list): The lists of the length_percentages of the tasks.
+            rewards (list): The list of the rewards of the tasks.
+            critic_qs (float): The q-values of the critic.
             angles (list): The list of the tuples of the current and target angles of the tasks.
 
         Returns:
@@ -76,6 +81,10 @@ class CurriculumBufferBWR(Buffer):
             raise Exception(
                 "length_percentage cannot be None to perform a curriculum step."
             )
+        if rewards is None:
+            raise Exception(
+                "rewards cannot be None to perform a curriculum step."
+            )
         if angles is None:
             raise Exception(
                 "angles cannot be None to perform a curriculum step."
@@ -87,6 +96,9 @@ class CurriculumBufferBWR(Buffer):
 
         env_0_threshold = [0.7,0.35] #[0.35, 0.2]
         env_1_threshold = 0.4 # for 2.5e7 steps total until 1e7 in 4-year-old then adult 
+        #env_2_threshold = 1000
+        env_2_threshold = [1000, 3, -2]
+        env_3_threshold = 1500
 
         if self.no_switch > 0:
             self.no_switch -= 1
@@ -108,6 +120,45 @@ class CurriculumBufferBWR(Buffer):
                 self.last_env_index = 1
                 self.last_task = 1
 
+        elif self.mode_env == 3:
+            # change the environment based on the critic q-values
+            # if the q-values are above a threshold, switch to the adult environment
+            mean_q_value = np.mean(critic_qs)
+            if mean_q_value == None:
+                tmp_mode_env = 2
+            else:
+                if mean_q_value >= env_3_threshold:
+                    self.last_env_index = 1
+                
+                if mean_q_value < env_3_threshold and self.last_env_index == 1:
+                    self.last_env_index = 0
+
+        elif self.mode_env == 2 or tmp_mode_env == 2:
+            # change the environment based on the reward function
+            # if the mean reward is above a threshold, switch to the adult environment
+            mean_reward = np.mean(rewards)
+            if mean_reward >= env_2_threshold[0]:
+                if self.epochs_above_threshold >= 0:
+                    self.epochs_above_threshold += 1
+                else:
+                    self.epochs_above_threshold = 1
+            else:
+                if self.epochs_above_threshold <= 0:
+                    self.epochs_above_threshold -= 1
+                else:
+                    self.epochs_above_threshold = -1
+            # if mean_reward >= env_2_threshold:
+            #     self.last_env_index = 1
+            # if mean_reward < env_2_threshold and self.last_env_index == 1:
+            #     self.last_env_index = 0
+            if self.epochs_above_threshold >= env_2_threshold[1]:
+                self.last_env_index = 1
+                self.epochs_above_threshold = 0
+            if self.epochs_above_threshold <= env_2_threshold[2] and self.last_env_index == 1:
+                self.last_env_index = 0
+                self.epochs_above_threshold = 0
+        
+
         # if the environment was switched, the agent cannot switch again for a certain number of steps
         if self.last_env_index != old_env_index:
             self.no_switch = 5
@@ -115,10 +166,13 @@ class CurriculumBufferBWR(Buffer):
         target_0_threshold = [0.5,0.3] #[0.3,0.2] #[0.5, 0.15] #0.6
         # target_1_threshold[0] = env_1_threshold, so that the ranges are not changed until the environment is switched to the adult
         target_1_threshold =[0.08, 0.16, 0.24, 0.32, 0.4] #[0.08, 0.16, 0.4] # for 2.5e7 steps total until 1e7 in 4-year-old (B-W-R) then adult (R)
+        # target_2_threshold = [0.5,0.3,750]
+        target_2_threshold = [0.5,0.3,750]#, 1000] #1000: max reward
 
         # print('reward_scale buffer', reward_scale)
         if self.mode_target == 0:
             # increase the velocity range if the average difference between the current and target velocities is below a threshold
+            print("velocity shape",np.shape(velocities))
             vel_percent_diffs = [
                 abs(velocity[0] - velocity[1])/reward_scale #/ (velocity[1] + 0.0001)
                 for velocity in velocities
@@ -196,6 +250,33 @@ class CurriculumBufferBWR(Buffer):
                 self.last_task = 5
             if steps_per > target_1_threshold[4]:
                 self.last_task = 0
+
+        elif self.mode_target == 2:
+            # increase the velocity and angle range if the mean reward is above a threshold and the mean difference between the current and target velocities and angles is below a threshold
+            vel_percent_diffs = [
+                abs(velocity[0] - velocity[1])/reward_scale
+                for velocity in velocities
+            ]
+
+            angle_percent_diffs = [
+                abs(angle[0] - angle[1]) / np.pi 
+                for angle in angles
+            ]
+
+            vel_percent_diff = np.mean(vel_percent_diffs)
+
+            angle_percent_diff = np.mean(angle_percent_diffs)
+
+            mean_reward = np.mean(rewards)
+            
+            if mean_reward >= target_2_threshold[2]:
+                if vel_percent_diff <= target_2_threshold[0]:
+                    vel_percent = min(1.25, self.last_vel_range[1] + 0.1)
+                    self.last_vel_range = (0, vel_percent)
+
+                if angle_percent_diff <= target_2_threshold[1]:
+                    angle_percent = min(np.pi, self.last_angle_range[1] + np.pi / 36)
+                    self.last_angle_range = (-angle_percent, angle_percent)    
 
         return (
             self.last_env_index,

@@ -79,7 +79,9 @@ class MPO(Agent):
 
         # Update the model if the replay is ready.
         if self.replay.ready(steps):
-            self._update(steps)
+            critic_q = self._update(steps)
+            return critic_q#returns the Q value -----------------------------------------------------------------
+
 
     def _step(self, observations):
         observations = torch.as_tensor(observations, dtype=torch.float32)
@@ -116,6 +118,8 @@ class MPO(Agent):
             self.model.observation_normalizer.update()
         if self.model.return_normalizer:
             self.model.return_normalizer.update()
+
+        return infos["critic"]["q"]#returns the Q value -----------------------------------------------------------------
 
     def _update_actor_critic(
         self, observations, actions, next_observations, rewards, discounts

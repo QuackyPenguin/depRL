@@ -72,6 +72,8 @@ class Trainer:
 
         # keep track of data that can be used to update the curriculum
         length_percentages = []
+        rewards = []
+        critic_qs = []
         velocities = []
         angles = []
 
@@ -133,7 +135,12 @@ class Trainer:
 
             if "env_infos" in info:
                 info.pop("env_infos")
-            self.agent.update(**info, steps=self.steps)
+            critic_q = self.agent.update(**info, steps=self.steps)
+            if critic_q is not None:
+                critic_qs.extend(critic_q.cpu().numpy())
+                print("critic_q",np.shape(critic_q))
+                print("steps", self.steps)
+                print("criti_qs", np.shape(critic_qs))
 
             scores += info["rewards"]
             lengths += 1
@@ -173,6 +180,7 @@ class Trainer:
                     length_percentages.append(
                         lengths[i] / self.environment._max_episode_steps
                     )
+                    rewards.append(scores[i])
                     scores[i] = 0
                     lengths[i] = 0
                     episodes += 1
@@ -230,6 +238,12 @@ class Trainer:
                 logger.store("train/steps_per_second", sps)
                 last_epoch_time = time.time()
                 epoch_steps = 0
+        
+                q_values = None
+                if "critic/q" in logger.get_current_logger().epoch_dict:
+                    q_values = logger.get_current_logger().epoch_dict["critic/q"]
+                    print("shape q-value",np.shape(q_values))
+                print("shape critic_qs",np.shape(critic_qs))
 
                 logger.dump()
 
@@ -238,6 +252,8 @@ class Trainer:
                     self.agent.replay._curriculum_step(
                         num_envs=self.number_of_environments,
                         length_percentages=length_percentages,
+                        rewards=rewards,
+                        critic_qs = critic_qs,
                         velocities=velocities,
                         angles=angles,
                         steps_per=self.steps / self.max_steps,
@@ -248,6 +264,9 @@ class Trainer:
                 velocities = []
                 angles = []
                 length_percentages = []
+                rewards = []
+                critic_qs = []
+
 
             # End of training.
             stop_training = self.steps >= self.max_steps
