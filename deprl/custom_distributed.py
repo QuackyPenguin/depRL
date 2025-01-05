@@ -137,7 +137,7 @@ class Sequential:
         actions,
         angle_range: tuple = (-np.pi / 4, np.pi / 4),
         vel_range: tuple = (0.25, 1.0),
-        gridAdaptiveCurric = GridAdaptiveCurriculum(vel_range=(0.0, 0.2), angle_range=(-np.pi/16, np.pi/16), resolution=(0.1, np.pi/32), success_threshold=1500), # muss hier als default gesetzt werden, weil beim testen im curriculum_trainer die gridAdaptiveCurric nicht gesetzt wird, aber diese Funktion hier aufgerufen wird
+        gridAdaptiveCurric = GridAdaptiveCurriculum(vel_range=(0.25, 1.25), angle_range=(-np.pi, np.pi), resolution=(0.1, np.pi/32)), # muss hier als default gesetzt werden, weil beim testen im curriculum_trainer die gridAdaptiveCurric nicht gesetzt wird, aber diese Funktion hier aufgerufen wird
         stand_prob: float = 0.0,
         new_task: int = 0,
     ):
