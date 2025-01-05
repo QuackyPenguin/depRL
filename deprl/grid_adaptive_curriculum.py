@@ -138,6 +138,21 @@ class GridAdaptiveCurriculum:
         center, index = self._sample_node()
         return self._sample_uniform_from_cell(center), index
     
+    def plot(self, title, label, save_path=None):
+        fig = plt.figure()
+        plt.scatter(self.grid[:,0], self.grid[:,1], label=label,s=25, c = self.weights, cmap='viridis')
+        scatter = plt.scatter(self.grid[:,0], self.grid[:,1], s=self.weights*750, c=self.weights, cmap='viridis', alpha=1, edgecolors='w')
+        plt.colorbar(scatter, label="Weight")
+        plt.xlabel('Velocity', fontsize=12)
+        plt.ylabel('Angle', fontsize=12)
+        plt.title(title, fontsize=14)
+        plt.axhline(0, color='gray', linestyle='--', linewidth=0.7)
+        plt.axvline(0, color='gray', linestyle='--', linewidth=0.7)
+        plt.grid(color='lightgray', linestyle='--', linewidth=0.5)
+        plt.legend(loc='upper right')
+        if save_path is not None:
+            plt.savefig(save_path)  
+    
 
 # if __name__ == '__main__':
 #     fig = plt.figure()
