@@ -81,6 +81,7 @@ class Trainer:
         environment_turn = self.agent.replay.last_env_index
         angle_range = self.agent.replay.last_angle_range
         vel_range = self.agent.replay.last_vel_range
+        gridAdaptiveCurric = self.agent.replay.gridAdaptiveCurric
         stand_prob = self.agent.replay.last_stand_prob
         task = self.agent.replay.last_task
 
@@ -128,7 +129,7 @@ class Trainer:
 
             # Take a step in the environments.
             observations, muscle_states, info = self.environment.step(
-                actions, angle_range, vel_range, stand_prob, task
+                actions, angle_range, vel_range, gridAdaptiveCurric, stand_prob, task
             )
             observations_list[environment_turn] = observations
             muscle_states_list[environment_turn] = muscle_states
@@ -138,9 +139,9 @@ class Trainer:
             critic_q = self.agent.update(**info, steps=self.steps)
             if critic_q is not None:
                 critic_qs.extend(critic_q.cpu().numpy())
-                print("critic_q",np.shape(critic_q))
-                print("steps", self.steps)
-                print("criti_qs", np.shape(critic_qs))
+                # print("critic_q",np.shape(critic_q))
+                # print("steps", self.steps)
+                # print("criti_qs", np.shape(critic_qs))
 
             scores += info["rewards"]
             lengths += 1
@@ -163,8 +164,10 @@ class Trainer:
                     )
                     # store the current environment parameters
                     logger.store("train/environment_index", environment_turn)
-                    logger.store("train/angle_range", angle_range[1])
-                    logger.store("train/vel_range", vel_range[1])
+                    # logger.store("train/angle_range", angle_range[1])
+                    # logger.store("train/vel_range", vel_range[1])
+                    logger.store("train/angle_range", np.max(gridAdaptiveCurric.grid[:,1]))
+                    logger.store("train/vel_range", np.max(gridAdaptiveCurric.grid[:,0]))
                     logger.store("train/stand_prob", stand_prob)
                     logger.store("train/task", task)
 
@@ -242,13 +245,13 @@ class Trainer:
                 q_values = None
                 if "critic/q" in logger.get_current_logger().epoch_dict:
                     q_values = logger.get_current_logger().epoch_dict["critic/q"]
-                    print("shape q-value",np.shape(q_values))
-                print("shape critic_qs",np.shape(critic_qs))
+                #     print("shape q-value",np.shape(q_values))
+                # print("shape critic_qs",np.shape(critic_qs))
 
                 logger.dump()
 
                 # update the curriculum, once per epoch
-                environment_turn, angle_range, vel_range, stand_prob, task = (
+                environment_turn, angle_range, vel_range, stand_prob, task, gridAdaptiveCurric = (
                     self.agent.replay._curriculum_step(
                         num_envs=self.number_of_environments,
                         length_percentages=length_percentages,

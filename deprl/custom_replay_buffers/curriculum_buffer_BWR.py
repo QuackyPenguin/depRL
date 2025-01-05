@@ -2,6 +2,7 @@ import numpy as np
 
 from deprl.vendor.tonic import logger
 from deprl.vendor.tonic.replays import Buffer
+from deprl.grid_adaptive_curriculum import GridAdaptiveCurriculum
 
 
 class CurriculumBufferBWR(Buffer):
@@ -28,6 +29,11 @@ class CurriculumBufferBWR(Buffer):
         # initial task is for the 4 year old
         self.last_task = 1
 
+        # initialize the grid adaptive curriculum
+        self.gridAdaptiveCurric = GridAdaptiveCurriculum(
+            vel_range=(0.0, 0.2), angle_range=(-np.pi/16, np.pi/16), resolution=(0.1, np.pi/32), success_threshold=1500
+        )
+
         # get the mode for switching the environment and the targets (angle, velocity, standing)
         self.mode_env = kwargs.pop("mode_env", 0)
         self.mode_target = kwargs.pop("mode_target", 0)
@@ -36,7 +42,7 @@ class CurriculumBufferBWR(Buffer):
             raise Exception(
                 f"Mode {self.mode_env} of the environment is not implemented."
             )
-        if self.mode_target not in [0, 1, 2]:
+        if self.mode_target not in [0, 1, 2, 3]:
             raise Exception(
                 f"Mode {self.mode_target} of the targets is not implemented."
             )
@@ -168,6 +174,7 @@ class CurriculumBufferBWR(Buffer):
         target_1_threshold =[0.08, 0.16, 0.24, 0.32, 0.4] #[0.08, 0.16, 0.4] # for 2.5e7 steps total until 1e7 in 4-year-old (B-W-R) then adult (R)
         # target_2_threshold = [0.5,0.3,750]
         target_2_threshold = [0.5,0.3,750]#, 1000] #1000: max reward
+        # target_3_threshold is saved in the grid adaptive curriculum
 
         # print('reward_scale buffer', reward_scale)
         if self.mode_target == 0:
@@ -278,12 +285,22 @@ class CurriculumBufferBWR(Buffer):
                     angle_percent = min(np.pi, self.last_angle_range[1] + np.pi / 36)
                     self.last_angle_range = (-angle_percent, angle_percent)    
 
+        elif self.mode_target == 3:
+            # use the grid adaptive curriculum to select the next task
+            mean_vel = np.mean(velocities[:][0])
+            mean_angle = np.mean(angles[:][0])
+            mean_reward = np.mean(rewards)
+            self.gridAdaptiveCurric.update(
+                mean_vel, mean_angle, mean_reward
+            )
+
         return (
             self.last_env_index,
             self.last_angle_range,
             self.last_vel_range,
             self.last_stand_prob,
             self.last_task,
+            self.gridAdaptiveCurric
         )
 
     # not used in the current implementation, was used just for changing the environment

@@ -21,6 +21,9 @@ class GridAdaptiveCurriculum:
     def grid(self):
         return self._grid[:, :2]
     
+    def set_success_threshold(self, success_threshold):
+        self.success_threshold = success_threshold
+    
     def _create_grid(self, vel_range, angle_range, resolution_vel, resolution_angle):
         """
         Erstellt ein Grid mit Velocity und Winkelwerten innerhalb der gegebenen Bereiche.
