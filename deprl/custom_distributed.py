@@ -6,7 +6,7 @@ import numpy as np
 
 from deprl.utils import stdout_suppression
 
-from depRL.deprl.grid_adaptive_curriculum import GridAdaptiveCurriculum
+from deprl.grid_adaptive_curriculum import GridAdaptiveCurriculum
 
 
 i = 0
