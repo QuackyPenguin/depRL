@@ -61,7 +61,7 @@ class GridAdaptiveCurriculum:
         self._grid = np.row_stack((self._grid[:, :], new_points))
         self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)
 
-    def _extend_grid_angle(self):
+    def _extend_grid_angle_top(self):
         """
         Erweitert ein bestehendes Grid entlang der Winkel-Achse (y-Achse) um eine bestimmte Anzahl von Schritten.
 
@@ -80,7 +80,28 @@ class GridAdaptiveCurriculum:
 
         # Erweitern des Grids um die neuen Punkte
         self._grid = np.insert(self._grid, new_point_indices, new_points, axis=0)  
-        self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)         
+        self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)
+
+    def _extend_grid_angle_bottom(self):
+        """
+        Erweitert ein bestehendes Grid entlang der Winkel-Achse (y-Achse) um eine bestimmte Anzahl von Schritten.
+
+        Returns:
+            numpy.ndarray: Das erweiterte Grid in Row-Major Order als 2D-Array (n, 3).
+        """
+        # Extrahieren des maximalen und minimalen Winkels aus dem bestehenden Grid
+        min_angle = np.min(self.grid[:, 1])
+        velocity_values = np.unique(self.grid[:, 0])
+        angle_values = np.unique(self.grid[:, 1])
+
+        # Erstellen der neuen Punkte für die Erweiterung
+        min_angle -= self.resolution_angle
+        new_points = np.array([[v, min_angle, np.min(self.weights)] for v in velocity_values])
+        new_point_indices = np.arange(0, len(self.grid), len(angle_values))
+
+        # Erweitern des Grids um die neuen Punkte
+        self._grid = np.insert(self._grid, new_point_indices, new_points, axis=0)
+        self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)
     
     def _get_adjacents(self, index):
         resolution = np.array([self.resolution_vel, self.resolution_angle])
@@ -111,9 +132,15 @@ class GridAdaptiveCurriculum:
             return True
         return False
     
-    def _is_border_angle(self, index):
+    def _is_border_angle_top(self, index):
         max_angle = np.max(self.grid[:, 1])
         if self.grid[index, 1] == max_angle:
+            return True
+        return False
+
+    def _is_border_angle_bottom(self, index):
+        min_angle = np.min(self.grid[:, 1])
+        if self.grid[index, 1] == min_angle:
             return True
         return False
 
@@ -122,8 +149,10 @@ class GridAdaptiveCurriculum:
             _, node_idx = self._get_node(velocity, angle)
             if self._is_border_vel(node_idx):
                 self._extend_grid_velocity()
-            if self._is_border_angle(node_idx):
-                self._extend_grid_angle()
+            if self._is_border_angle_top(node_idx):
+                self._extend_grid_angle_top()
+            if self._is_border_angle_bottom(node_idx):
+                self._extend_grid_angle_bottom()
             self._adapt_weights(node_idx)
     
     def _sample_node(self):
@@ -148,6 +177,8 @@ class GridAdaptiveCurriculum:
         plt.scatter(self.grid[:,0], self.grid[:,1], label=label,s=25, c = self.weights, cmap='viridis')
         scatter = plt.scatter(self.grid[:,0], self.grid[:,1], s=self.weights*750, c=self.weights, cmap='viridis', alpha=1, edgecolors='w')
         plt.colorbar(scatter, label="Weight")
+        plt.xlim(0,2)
+        plt.ylim(-np.pi,np.pi)
         plt.xlabel('Velocity', fontsize=12)
         plt.ylabel('Angle', fontsize=12)
         plt.title(title, fontsize=14)
