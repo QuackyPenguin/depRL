@@ -120,12 +120,19 @@ class GridAdaptiveCurriculum:
         return adjacent_inds
     
     def _adapt_weights(self, index):
+        ### weights are initializd with 0 + weights are adapted diffently: instead of adding 0.2, the weights are set to 1 for the node itself and for all adjacent nodes
+        self._grid[index, 2] = 1
+        adjacents = self._get_adjacents(index)
+        adjacent_inds = np.array(adjacents.nonzero()[0])
+        self._grid[adjacent_inds, 2] = 1
+
+    def _adapt_weights_old(self, index):
         self._grid[index, 2] = np.clip(self._grid[index, 2] + 0.2, 0, 1)
         # self._grid[:,2] = self._grid[:,2] / np.sum(self.weights)                          ### weights are initialized with 1 and then normalized
         adjacents = self._get_adjacents(index)
         adjacent_inds = np.array(adjacents.nonzero()[0])
         self._grid[adjacent_inds, 2] = np.clip(self._grid[adjacent_inds, 2] + 0.2, 0, 1)
-        # self._grid[:,2] = self._grid[:,2] / np.sum(self.weights)                          ### weights are initialized with 1 and then normalized
+        # self._grid[:,2] = self._grid[:,2] / np.sum(self.weights)  
 
     def _get_node(self, velocity, angle):
         # Find the closest grid point to the given velocity and angle
