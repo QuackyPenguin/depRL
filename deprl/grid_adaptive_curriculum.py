@@ -38,9 +38,9 @@ class GridAdaptiveCurriculum:
         """
         vel_values = np.arange(vel_range[0], vel_range[1] + resolution_vel, resolution_vel)
         angle_values = np.arange(angle_range[0], angle_range[1] + resolution_angle, resolution_angle)
-        # grid = np.array([[vel, angle, 1] for vel in vel_values for angle in angle_values])
-        # grid[:, 2] = 1/np.sum(grid[:, 2])
-        grid = np.array([[vel, angle, 0] for vel in vel_values for angle in angle_values])      ###alternativ: eventuell weights als 1 definieren und dann direkt normalisieren
+        # grid = np.array([[vel, angle, 1] for vel in vel_values for angle in angle_values])                ### weights are initialized with 1 and then normalized
+        # grid[:, 2] = 1/np.sum(grid[:, 2])                                                                 ### weights are initialized with 1 and then normalized
+        grid = np.array([[vel, angle, 0] for vel in vel_values for angle in angle_values])                  ### weights are initialized with 0
 
         return grid
     
@@ -57,12 +57,12 @@ class GridAdaptiveCurriculum:
         
         # Erstellen der neuen Punkte für die Erweiterung
         max_velocity += self.resolution_vel
-        # new_points = np.array([[max_velocity, a, np.min(self.weights)] for a in angle_values])
-        new_points = np.array([[max_velocity, a, 0] for a in angle_values])
+        # new_points = np.array([[max_velocity, a, np.min(self.weights)] for a in angle_values])     ### weights are initialized with 1 and then normalized
+        new_points = np.array([[max_velocity, a, 0] for a in angle_values])                          ### weights are initialized with 0
 
         # Erweitern des Grids um die neuen Punkte
         self._grid = np.row_stack((self._grid[:, :], new_points))
-        # self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)
+        # self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)                                 ### weights are initialized with 1 and then normalized
 
     def _extend_grid_angle_top(self):
         """
@@ -78,14 +78,14 @@ class GridAdaptiveCurriculum:
 
         # Erstellen der neuen Punkte für die Erweiterung
         max_angle += self.resolution_angle
-        # new_points = np.array([[v, max_angle, np.min(self.weights)] for v in velocity_values])
-        new_points = np.array([[v, max_angle, 0] for v in velocity_values])
+        # new_points = np.array([[v, max_angle, np.min(self.weights)] for v in velocity_values])    ### weights are initialized with 1 and then normalized
+        new_points = np.array([[v, max_angle, 0] for v in velocity_values])                          ### weights are initialized with 0
 
         new_point_indices = np.arange(len(angle_values), len(self.grid) + len(angle_values), len(angle_values))
 
         # Erweitern des Grids um die neuen Punkte
         self._grid = np.insert(self._grid, new_point_indices, new_points, axis=0)  
-        # self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)
+        # self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)                                ### weights are initialized with 1 and then normalized
 
     def _extend_grid_angle_bottom(self):
         """
@@ -101,14 +101,14 @@ class GridAdaptiveCurriculum:
 
         # Erstellen der neuen Punkte für die Erweiterung
         min_angle -= self.resolution_angle
-        # new_points = np.array([[v, min_angle, np.min(self.weights)] for v in velocity_values])
-        new_points = np.array([[v, min_angle, 0] for v in velocity_values])
+        # new_points = np.array([[v, min_angle, np.min(self.weights)] for v in velocity_values])    ### weights are initialized with 1 and then normalized
+        new_points = np.array([[v, min_angle, 0] for v in velocity_values])                          ### weights are initialized with 0
 
         new_point_indices = np.arange(0, len(self.grid), len(angle_values))
 
         # Erweitern des Grids um die neuen Punkte
         self._grid = np.insert(self._grid, new_point_indices, new_points, axis=0)
-        # self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)
+        # self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)                                ### weights are initialized with 1 and then normalized
     
     def _get_adjacents(self, index):
         resolution = np.array([self.resolution_vel, self.resolution_angle])
@@ -121,11 +121,11 @@ class GridAdaptiveCurriculum:
     
     def _adapt_weights(self, index):
         self._grid[index, 2] = np.clip(self._grid[index, 2] + 0.2, 0, 1)
-        # self._grid[:,2] = self._grid[:,2] / np.sum(self.weights)
+        # self._grid[:,2] = self._grid[:,2] / np.sum(self.weights)                          ### weights are initialized with 1 and then normalized
         adjacents = self._get_adjacents(index)
         adjacent_inds = np.array(adjacents.nonzero()[0])
         self._grid[adjacent_inds, 2] = np.clip(self._grid[adjacent_inds, 2] + 0.2, 0, 1)
-        # self._grid[:,2] = self._grid[:,2] / np.sum(self.weights)
+        # self._grid[:,2] = self._grid[:,2] / np.sum(self.weights)                          ### weights are initialized with 1 and then normalized
 
     def _get_node(self, velocity, angle):
         # Find the closest grid point to the given velocity and angle
@@ -164,11 +164,11 @@ class GridAdaptiveCurriculum:
     
     def _sample_node(self):
         """default to uniform"""
-        if self.weights.sum() == 0:
-            index = self.rng.choice(len(self.grid), 1)
-        else:
-            index = self.rng.choice(len(self.grid), 1, p=self.weights / self.weights.sum())
-        # index = self.rng.choice(len(self.grid), 1, p=self.weights)
+        if self.weights.sum() == 0:                                                              ### weights are initialized with 0
+            index = self.rng.choice(len(self.grid), 1)                                           ### weights are initialized with 0
+        else:                                                                                       ### weights are initialized with 0
+            index = self.rng.choice(len(self.grid), 1, p=self.weights / self.weights.sum())          ### weights are initialized with 0
+        # index = self.rng.choice(len(self.grid), 1, p=self.weights)                            ### weights are initialized with 1 and then normalized
         return self.grid[index][0], index[0]
 
     def _sample_uniform_from_cell(self, center):
