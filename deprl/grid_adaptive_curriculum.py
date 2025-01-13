@@ -36,8 +36,8 @@ class GridAdaptiveCurriculum:
         Returns:
             numpy.ndarray: Das erstellte Grid als 2D-Array (n, 2).
         """
-        vel_values = np.arange(vel_range[0], vel_range[1] + resolution_vel, resolution_vel)
-        angle_values = np.arange(angle_range[0], angle_range[1] + resolution_angle, resolution_angle)
+        vel_values = np.arange(vel_range[0], vel_range[1] + resolution_vel/10, resolution_vel)
+        angle_values = np.arange(angle_range[0], angle_range[1] + resolution_angle/10, resolution_angle)
         # grid = np.array([[vel, angle, 1] for vel in vel_values for angle in angle_values])                ### weights are initialized with 1 and then normalized
         # grid[:, 2] = 1/np.sum(grid[:, 2])                                                                 ### weights are initialized with 1 and then normalized
         grid = np.array([[vel, angle, 0] for vel in vel_values for angle in angle_values])                  ### weights are initialized with 0
@@ -119,14 +119,14 @@ class GridAdaptiveCurriculum:
 
         return adjacent_inds
     
-    def _adapt_weights(self, index):
+    def _adapt_weights_new(self, index):
         ### weights are initializd with 0 + weights are adapted diffently: instead of adding 0.2, the weights are set to 1 for the node itself and for all adjacent nodes
         self._grid[index, 2] = 1
         adjacents = self._get_adjacents(index)
         adjacent_inds = np.array(adjacents.nonzero()[0])
         self._grid[adjacent_inds, 2] = 1
 
-    def _adapt_weights_old(self, index):
+    def _adapt_weights(self, index):
         self._grid[index, 2] = np.clip(self._grid[index, 2] + 0.2, 0, 1)
         # self._grid[:,2] = self._grid[:,2] / np.sum(self.weights)                          ### weights are initialized with 1 and then normalized
         adjacents = self._get_adjacents(index)
@@ -136,7 +136,7 @@ class GridAdaptiveCurriculum:
 
     def _get_node(self, velocity, angle):
         # Find the closest grid point to the given velocity and angle
-        squared_distances = (self.grid[:, 0] - velocity) ** 2 + (self.grid[:, 1] - angle)
+        squared_distances = (self.grid[:, 0] - velocity) ** 2 + (self.grid[:, 1] - angle) ** 2
         index = np.argmin(squared_distances)
         return self.grid[index], index
     
@@ -189,8 +189,8 @@ class GridAdaptiveCurriculum:
     
     def plot(self, title, label, save_path=None):
         fig = plt.figure()
-        plt.scatter(self.grid[:,0], self.grid[:,1], label=label,s=25, c = self.weights, cmap='viridis')
-        scatter = plt.scatter(self.grid[:,0], self.grid[:,1], s=self.weights*750, c=self.weights, cmap='viridis', alpha=1, edgecolors='w')
+        # plt.scatter(self.grid[:,0], self.grid[:,1],s=25, c = self.weights, cmap='viridis')
+        scatter = plt.scatter(self.grid[:,0], self.grid[:,1], s=self.weights*750, c=self.weights, cmap='viridis', alpha=1, edgecolors='w', label = label)
         plt.colorbar(scatter, label="Weight")
         plt.xlim(0,1)
         plt.ylim(-np.pi/2,np.pi/2)
@@ -203,81 +203,3 @@ class GridAdaptiveCurriculum:
         plt.legend(loc='upper right')
         if save_path is not None:
             plt.savefig(save_path)  
-    
-
-# if __name__ == '__main__':
-#     fig = plt.figure()
-
-#     gridAdaptiveCurric = GridAdaptiveCurriculum(vel_range=(0.0, 2.0), angle_range=(-1.0, 1.0), resolution =(0.5, 0.5))
-    
-#     grid = gridAdaptiveCurric.grid
-#     weights = gridAdaptiveCurric.weights
-#     print("Initial grid shape: ", grid.shape)
-#     print("Initial weights: ", weights)
-#     # plt.scatter(grid[:, 0], grid[:, 1], label='Grid Punkte',s=200)
-#     print("--------------------------------------------------------------------")
-
-#     sample,index=gridAdaptiveCurric.sample()
-#     print("sample",sample, " in cell of node with index ", index)
-#     print("--------------------------------------------------------------------")
-
-#     gridAdaptiveCurric.update(1.1, 0.7, 600)
-#     extendedGrid = gridAdaptiveCurric.grid
-#     weights = gridAdaptiveCurric.weights
-#     print("Updated grid shape: ", extendedGrid.shape)
-#     print("Updated weights: ", weights)
-#     print("--------------------------------------------------------------------")
-
-#     gridAdaptiveCurric.update(1.1, 0.7, 1000)
-#     extendedGrid = gridAdaptiveCurric.grid
-#     weights = gridAdaptiveCurric.weights
-#     print("Updated grid shape: ", extendedGrid.shape)
-#     print("Updated weights: ", weights)
-#     # plt.scatter(extendedGrid[:, 0], extendedGrid[:, 1], label='exGrid Punkte',s=100)
-#     print("--------------------------------------------------------------------")
-
-#     gridAdaptiveCurric.update(1.9, 0.61, 1500)
-#     extendedGrid2 = gridAdaptiveCurric.grid
-#     x = extendedGrid2[:,0]
-#     y = extendedGrid2[:,1]
-#     weights = gridAdaptiveCurric.weights
-#     print("Updated grid shape: ", extendedGrid2.shape)
-#     print("Updated weights: ", weights)
-#     plt.scatter(x, y, label='exGrid2 Punkte',s=25, c = weights, cmap='viridis')
-#     plots = ["hexbin", "scatter", "contourf", "weighted histogram", "vector field", None]
-#     plot = plots[1]
-#     if plot == "hexbin":
-#         #first way of plotting: hexbin
-#         plt.colorbar(plt.hexbin(x, y, C=weights, gridsize=30, cmap='viridis', reduce_C_function=np.sum, label='exGrid2 Punkte'))
-#     if plot == "scatter":
-#         #second way of plotting: just scatter
-#         scatter = plt.scatter(x, y, s=weights*750, c=weights, cmap='viridis', alpha=1, edgecolors='w')
-#         plt.colorbar(scatter, label="Weight")
-#     if plot == "contourf":
-#         #third way of plotting: contourf
-#         # Interpolate the data onto a grid
-#         xi = np.linspace(min(x), max(x), 100)
-#         yi = np.linspace(min(y), max(y), 100)
-#         xi, yi = np.meshgrid(xi, yi)
-#         zi = griddata((x, y), weights, (xi, yi), method='cubic')
-#         # plot the grid
-#         contour = plt.contourf(xi, yi, zi, levels=15, cmap='viridis')
-#         plt.colorbar(contour, label='Weight')
-#         plt.scatter(x, y, c='white', s=10, alpha=0.5, label='Points')
-#     if plot == "weighted histogram":
-#         #fourth way of plotting: weighted histogram
-#         plt.hist2d(x, y, bins=30, weights=weights, cmap='viridis')
-#         plt.colorbar(label='Weight')
-#     if plot == "vector field":
-#         #fifth way of plotting: vector field
-#         plt.quiver(x, y, weights, weights, angles='xy', scale_units='xy', scale=1, cmap='viridis', label='exGrid2 Punkte')
-#         plt.colorbar(label='Weight')    
-    
-#     plt.xlabel('Velocity', fontsize=12)
-#     plt.ylabel('Winkel', fontsize=12)
-#     plt.title('Grid Darstellung', fontsize=14)
-#     plt.axhline(0, color='gray', linestyle='--', linewidth=0.7)
-#     plt.axvline(0, color='gray', linestyle='--', linewidth=0.7)
-#     plt.grid(color='lightgray', linestyle='--', linewidth=0.5)
-#     plt.legend(loc='upper right')
-#     plt.show()
