@@ -58,6 +58,7 @@ class CurriculumBufferBWR(Buffer):
         velocities=None,
         length_percentages=None,
         rewards=None,
+        episode_lengths = None,
         critic_qs=None,
         angles=None,
         steps_per=0,
@@ -286,13 +287,40 @@ class CurriculumBufferBWR(Buffer):
                     self.last_angle_range = (-angle_percent, angle_percent)    
 
         elif self.mode_target == 3:
-            # use the grid adaptive curriculum to select the next task
-            mean_vel = np.mean(velocities[:][0])
-            mean_angle = np.mean(angles[:][0])
-            mean_reward = np.mean(rewards)
+            # # use the grid adaptive curriculum to select the next task
+            # mean_vel = np.mean(velocities[:][0])
+            # mean_angle = np.mean(angles[:][0])
+            # mean_reward = np.mean(rewards)
+            # self.gridAdaptiveCurric.update(
+            #     mean_vel, mean_angle, mean_reward
+            # )
+
+            # # update the grid several times (use mean values not over the whole epoch, but over a certain number of steps)
+            # num_of_updates = 10
+            # summed_episode_lengths = [np.sum(episode_lengths[:int((i+1)/num_of_updates*len(episode_lengths))]) for i in range(num_of_updates)]
+            # summed_episode_lengths = np.insert(summed_episode_lengths, 0, 0)
+            # for i in range(num_of_updates):
+            #     curr_rewards = rewards[int(i/num_of_updates*len(rewards)):int((i+1)/num_of_updates*len(rewards))]
+            #     curr_velocities = velocities[summed_episode_lengths[i]:summed_episode_lengths[i+1]]
+            #     curr_angles = angles[summed_episode_lengths[i]:summed_episode_lengths[i+1]]
+            #     mean_vel = np.mean(curr_velocities)
+            #     mean_angle = np.mean(curr_angles)
+            #     mean_reward = np.mean(curr_rewards)
+            #     self.gridAdaptiveCurric.update(
+            #         mean_vel, mean_angle, mean_reward
+            #     )
+
+            # update the grid based on the mean value of the last episode
+            last_episode_length = episode_lengths[-1]
+            last_reward = rewards[-1]
+            last_velocities = velocities[-last_episode_length:]
+            last_angles = angles[-last_episode_length:]
+            mean_vel = np.mean(last_velocities)
+            mean_angle = np.mean(last_angles)
             self.gridAdaptiveCurric.update(
-                mean_vel, mean_angle, mean_reward
-            )
+                    mean_vel, mean_angle, last_reward
+                )
+            
 
         return (
             self.last_env_index,
