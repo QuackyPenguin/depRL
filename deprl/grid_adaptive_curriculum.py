@@ -161,11 +161,11 @@ class GridAdaptiveCurriculum:
     def update(self, velocity, angle, reward):
         if reward >= self.success_threshold:
             _, node_idx = self._get_node(velocity, angle)
-            if self._is_border_vel(node_idx):
+            if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25:
                 self._extend_grid_velocity()
-            if self._is_border_angle_top(node_idx):
+            if self._is_border_angle_top(node_idx) and self.grid[node_idx, 1] < np.pi:
                 self._extend_grid_angle_top()
-            if self._is_border_angle_bottom(node_idx):
+            if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi:
                 self._extend_grid_angle_bottom()
             self._adapt_weights(node_idx)
     
