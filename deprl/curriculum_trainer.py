@@ -74,6 +74,7 @@ class Trainer:
         length_percentages = []
         rewards = []
         critic_qs = []
+        episode_lengths = []
         velocities = []
         angles = []
 
@@ -167,6 +168,7 @@ class Trainer:
                     # logger.store("train/angle_range", angle_range[1])
                     # logger.store("train/vel_range", vel_range[1])
                     logger.store("train/angle_range", np.max(gridAdaptiveCurric.grid[:,1]))
+                    logger.store("train/neg_angle_range", np.min(gridAdaptiveCurric.grid[:,1]))
                     logger.store("train/vel_range", np.max(gridAdaptiveCurric.grid[:,0]))
                     logger.store("train/stand_prob", stand_prob)
                     logger.store("train/task", task)
@@ -184,6 +186,7 @@ class Trainer:
                         lengths[i] / self.environment._max_episode_steps
                     )
                     rewards.append(scores[i])
+                    episode_lengths.append(lengths[i])
                     scores[i] = 0
                     lengths[i] = 0
                     episodes += 1
@@ -197,7 +200,7 @@ class Trainer:
                 # Evaluate the agent on the test environment.
                 for i in range(num_workers):
                     if i == 0:
-                        gridAdaptiveCurric.plot(label = f"weight[0] = {gridAdaptiveCurric.weights[0]}", title = f"# epochs: {epochs}", save_path = f"/home/nadinebadie/denis/valentin_results/grid-adaptive-curric_target/try2/grid-plots-worker0/{epochs}.png")
+                        gridAdaptiveCurric.plot(label = f"weight[0] = {gridAdaptiveCurric.weights[0]}", title = f"# epochs: {epochs}", save_path = f"/home/nadinebadie/denis/valentin_results/grid-adaptive-curric_target/try15/grid-plots-worker0/{epochs}.png")
                 if self.test_environment is not None:
                     if (
                         "control"
@@ -259,6 +262,7 @@ class Trainer:
                         num_envs=self.number_of_environments,
                         length_percentages=length_percentages,
                         rewards=rewards,
+                        episode_lengths = episode_lengths,
                         critic_qs = critic_qs,
                         velocities=velocities,
                         angles=angles,
