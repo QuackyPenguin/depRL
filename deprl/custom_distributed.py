@@ -202,6 +202,13 @@ class Sequential:
         for env in self.environments:
             env.render_substep()
 
+    def get_vel(self):
+        return [[env.unwrapped.model_velocity(), env.unwrapped.current_target_vel] for env in self.environments]
+    def get_angles(self):
+        return [[np.arctan2(env.unwrapped.model.com_vel().z, env.unwrapped.model.com_vel().x), env.unwrapped.angle] for env in self.environments]
+    def get_reward_scale(self):
+        return [env.unwrapped.reward_scale for env in self.environments]
+
 
 class Parallel:
     """A group of sequential environments used in parallel."""
