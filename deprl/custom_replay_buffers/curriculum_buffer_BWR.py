@@ -63,6 +63,9 @@ class CurriculumBufferBWR(Buffer):
         angles=None,
         steps_per=0,
         reward_scale=1,
+        collected_velocities=None,
+        collected_angles=None,
+        worker_rewards=None,
     ):
         """Perform a curriculum step. Update the environment index, angle range, and velocity range.
 
@@ -295,6 +298,95 @@ class CurriculumBufferBWR(Buffer):
             #     mean_vel, mean_angle, mean_reward
             # )
 
+            # # only use those episodes for the updates where the target velocity or angle are close to the current maximum velocity or angle
+            # Dictionary to store episode data
+            episode_data = {}
+
+            for entry in collected_velocities:
+                worker_id, episode_id, velocity = entry
+                key = (worker_id, episode_id)
+                if key not in episode_data:
+                    episode_data[key] = {'velocities': [], 'angles': [], 'reward': None}
+                episode_data[key]['velocities'].append(velocity)
+
+            for entry in collected_angles:
+                worker_id, episode_id, angle = entry
+                key = (worker_id, episode_id)
+                if key in episode_data:  # Ensure we have velocities for the same key
+                    episode_data[key]['angles'].append(angle)
+
+            # Add rewards for each episode
+            for worker_id, rewards in enumerate(worker_rewards):
+                for episode_id, reward in enumerate(rewards):
+                    key = (worker_id, episode_id)
+                    if key in episode_data:
+                        episode_data[key]['reward'] = reward
+
+            # remove episodes without rewards
+            episode_data = {key: data for key, data in episode_data.items() if data['reward'] is not None}
+
+            # Convert velocities and angles to numpy arrays for consistency
+            for key, data in episode_data.items():
+                data['velocities'] = np.array(data['velocities'])
+                data['angles'] = np.array(data['angles'])
+
+            # print("Episode Data:")
+            # for key, data in episode_data.items():
+            #     print(f"Episode {key}:")
+            #     print(f"  Velocities: {data['velocities']}")
+            #     print(f"  Angles: {data['angles']}")
+            #     print(f"  Reward: {data['reward']}")
+
+            # Example maximum velocity and angle
+            max_velocity = np.max(self.gridAdaptiveCurric.grid[:, 0])
+            max_angle = np.max(self.gridAdaptiveCurric.grid[:, 1])
+
+            # Tolerance for "closeness"
+            tolerance = 1e-2
+
+            # Containers for the filtered data
+            filtered_rewards = []
+            filtered_velocities = []
+            filtered_angles = []
+
+            # Filter episodes
+            for key, data in episode_data.items():
+                # Check if the target velocity or angle is close to the maximum
+                target_velocity_close = np.abs(data['velocities'][:, 1] - max_velocity).mean() <= tolerance
+                target_angle_close = np.abs(data['angles'][:, 1] - max_angle).mean() <= tolerance
+
+                if target_velocity_close or target_angle_close:
+                    # print("-------------------------> Episode", key, "is close to the maximum.")
+                    filtered_rewards.append(data['reward'])
+                    filtered_velocities.append(data['velocities'])
+                    filtered_angles.append(data['angles'])
+
+            # Compute means
+            if filtered_rewards != []:
+                print("Updating grid")
+                mean_reward = np.mean(filtered_rewards)
+                mean_velocity = np.mean(np.vstack(filtered_velocities)[:,1].mean())
+                mean_angle = np.mean(np.vstack(filtered_angles)[:,1].mean())
+
+                self.gridAdaptiveCurric.update(
+                        mean_velocity, mean_angle, mean_reward
+                    )
+
+            # Output results
+            # print("Mean Reward:", mean_reward)
+            # print("Mean Velocities:", mean_velocities)
+            # print("Mean Angles:", mean_angles)
+
+            # print("-----------------------------------")
+            # print("steps: ", 9*4)
+            # print("steps ausgelassen, weil episode am Ende der j-Schleife noch nicht beendet ist: ", 1+4+8)
+            # print("sum of episode_lengths: ", sum(episode_lengths))
+            # print("length of collected_velocities: ", len(collected_velocities))
+            # print("length of episode_lengths: ", len(episode_lengths))
+            # print("length of all velocities: ", len(np.concatenate([data['velocities'] for data in episode_data.values()])))
+
+
+
             # # update the grid several times (use mean values not over the whole epoch, but over a certain number of steps)
             # num_of_updates = 10
             # summed_episode_lengths = [np.sum(episode_lengths[:int((i+1)/num_of_updates*len(episode_lengths))]) for i in range(num_of_updates)]
@@ -310,16 +402,16 @@ class CurriculumBufferBWR(Buffer):
             #         mean_vel, mean_angle, mean_reward
             #     )
 
-            # update the grid based on the mean value of the last episode
-            last_episode_length = episode_lengths[-1]
-            last_reward = rewards[-1]
-            last_velocities = velocities[-last_episode_length:]
-            last_angles = angles[-last_episode_length:]
-            mean_vel = np.mean(last_velocities)
-            mean_angle = np.mean(last_angles)
-            self.gridAdaptiveCurric.update(
-                    mean_vel, mean_angle, last_reward
-                )
+            # # update the grid based on the mean value of the last episode
+            # last_episode_length = episode_lengths[-1]
+            # last_reward = rewards[-1]
+            # last_velocities = velocities[-last_episode_length:]
+            # last_angles = angles[-last_episode_length:]
+            # mean_vel = np.mean(last_velocities)
+            # mean_angle = np.mean(last_angles)
+            # self.gridAdaptiveCurric.update(
+            #         mean_vel, mean_angle, last_reward
+            #     )
             
 
         return (
