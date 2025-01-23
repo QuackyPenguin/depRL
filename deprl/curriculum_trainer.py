@@ -66,6 +66,9 @@ class Trainer:
         num_workers = len(observations)
         scores = np.zeros(num_workers)
         lengths = np.zeros(num_workers, int)
+        worker_episodes = np.zeros(num_workers, int)
+        worker_rewards = [np.zeros(0) for _ in range(num_workers)]
+        worker_episode_lengths = [np.zeros(0) for _ in range(num_workers)]
         unique_states = [set() for _ in range(num_workers)]
         self.steps, epoch_steps = steps, 0
         steps_since_save = 0
@@ -77,6 +80,8 @@ class Trainer:
         episode_lengths = []
         velocities = []
         angles = []
+        collected_velocities = []
+        collected_angles = []
 
         # get the initial curriculum parameters
         environment_turn = self.agent.replay.last_env_index
@@ -86,6 +91,7 @@ class Trainer:
         stand_prob = self.agent.replay.last_stand_prob
         task = self.agent.replay.last_task
 
+        aaaaa = 0
         while True:
 
             self.environment = self.environments[environment_turn]
@@ -103,6 +109,19 @@ class Trainer:
             velocities.extend(current_velocities)
             angles.extend(current_angles)
 
+            for i, (vel, ang) in enumerate(zip(current_velocities, current_angles)):
+                collected_velocities.append((i, worker_episodes[i], vel))  # Worker ID and episode count
+                collected_angles.append((i, worker_episodes[i], ang))
+                # if i ==0 or i == 1:
+                # #     # if vel[1] != 0:
+                #     print(f"Worker {i}: Current Episode={worker_episodes[i]}, Current Length={lengths[i]}, Current Velocity={vel[1]}, Current Angle={ang}")
+            aaaaa += 1
+            if aaaaa == 200:
+                print("collected vel", collected_velocities)
+                print("worker_episode_lengths", worker_episode_lengths)
+                print("worker_rewards", worker_rewards)
+                print("worker_episodes", worker_episodes)
+                a.fale()
             # Select actions.
             if hasattr(self.agent, "expl"):
                 greedy_episode = (
@@ -150,26 +169,29 @@ class Trainer:
             epoch_steps += num_workers
             steps_since_save += num_workers
 
-            # Show the progress bar.
-            if self.show_progress:
-                logger.show_progress(
-                    self.steps, self.epoch_steps, self.max_steps
-                )
+            # #Show the progress bar.
+            # if self.show_progress:
+            #     logger.show_progress(
+            #         self.steps, self.epoch_steps, self.max_steps
+            #     )
 
             # Check the finished episodes.
             for i in range(num_workers):
                 if info["resets"][i]:
+                    if i == 0 or i == 1:
+                        print("-------------------------------------------------------------------------------------------------------------------------------------------------------")
+                        print(f"Worker {i}: Episode {worker_episodes[i]} Finished. Score={scores[i]}, Length={lengths[i]}")
                     logger.store("train/episode_score", scores[i], stats=True)
                     logger.store(
                         "train/episode_length", lengths[i], stats=True
                     )
                     # store the current environment parameters
                     logger.store("train/environment_index", environment_turn)
-                    # logger.store("train/angle_range", angle_range[1])
-                    # logger.store("train/vel_range", vel_range[1])
-                    logger.store("train/angle_range", np.max(gridAdaptiveCurric.grid[:,1]))
-                    logger.store("train/neg_angle_range", np.min(gridAdaptiveCurric.grid[:,1]))
-                    logger.store("train/vel_range", np.max(gridAdaptiveCurric.grid[:,0]))
+                    logger.store("train/angle_range", angle_range[1])
+                    logger.store("train/vel_range", vel_range[1])
+                    # logger.store("train/angle_range", np.max(gridAdaptiveCurric.grid[:,1]))
+                    # logger.store("train/neg_angle_range", np.min(gridAdaptiveCurric.grid[:,1]))
+                    # logger.store("train/vel_range", np.max(gridAdaptiveCurric.grid[:,0]))
                     logger.store("train/stand_prob", stand_prob)
                     logger.store("train/task", task)
 
@@ -187,9 +209,13 @@ class Trainer:
                     )
                     rewards.append(scores[i])
                     episode_lengths.append(lengths[i])
+                    worker_rewards[i] = np.append(worker_rewards[i], scores[i])
+                    worker_episode_lengths[i] = np.append(worker_episode_lengths[i], lengths[i])
                     scores[i] = 0
                     lengths[i] = 0
                     episodes += 1
+                    worker_episodes[i] += 1
+
 
                     logger.store("train/unique_states", len(unique_states[i]))
 
@@ -199,7 +225,7 @@ class Trainer:
             if epoch_steps >= self.epoch_steps:
                 # Evaluate the agent on the test environment.
                 for i in range(num_workers):
-                    if i == 0:
+                    if i == 0 or i ==1:
                         gridAdaptiveCurric.plot(label = f"weight[0] = {gridAdaptiveCurric.weights[0]}", title = f"# epochs: {epochs}", save_path = f"/home/nadinebadie/denis/valentin_results/grid-adaptive-curric_target/try15/grid-plots-worker0/{epochs}.png")
                 if self.test_environment is not None:
                     if (
@@ -268,6 +294,9 @@ class Trainer:
                         angles=angles,
                         steps_per=self.steps / self.max_steps,
                         reward_scale=reward_scale,
+                        collected_angles = collected_angles,
+                        collected_velocities = collected_velocities,
+                        worker_rewards = worker_rewards,
                     )
                 )
 
