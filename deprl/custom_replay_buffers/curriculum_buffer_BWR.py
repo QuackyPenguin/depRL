@@ -300,90 +300,45 @@ class CurriculumBufferBWR(Buffer):
 
             # # only use those episodes for the updates where the target velocity or angle are close to the current maximum velocity or angle
             # Dictionary to store episode data
-            episode_data = {}
+            episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
+            
+            # for global_worker_id, data in episode_data.items():
+            #     for episode, tmp_data in data.items():
+            #         if global_worker_id == 0:
+            #             print(f"Worker {global_worker_id}, Episode {episode}:")
+            #             print(f"  Velocities: {tmp_data['velocity']}")
+                #         print(f"  Angles: {tmp_data['angle']}")
+                #         print(f"  Reward: {tmp_data['reward']}")
+                #print("Worker ", global_worker_id, ", episodes:", data.keys())
 
-            for entry in collected_velocities:
-                worker_id, episode_id, velocity = entry
-                key = (worker_id, episode_id)
-                if key not in episode_data:
-                    episode_data[key] = {'velocities': [], 'angles': [], 'reward': None}
-                episode_data[key]['velocities'].append(velocity)
-
-            for entry in collected_angles:
-                worker_id, episode_id, angle = entry
-                key = (worker_id, episode_id)
-                if key in episode_data:  # Ensure we have velocities for the same key
-                    episode_data[key]['angles'].append(angle)
-
-            # Add rewards for each episode
-            for worker_id, rewards in enumerate(worker_rewards):
-                for episode_id, reward in enumerate(rewards):
-                    key = (worker_id, episode_id)
-                    if key in episode_data:
-                        episode_data[key]['reward'] = reward
-
-            # remove episodes without rewards
-            episode_data = {key: data for key, data in episode_data.items() if data['reward'] is not None}
-
-            # Convert velocities and angles to numpy arrays for consistency
-            for key, data in episode_data.items():
-                data['velocities'] = np.array(data['velocities'])
-                data['angles'] = np.array(data['angles'])
-
-            # print("Episode Data:")
-            # for key, data in episode_data.items():
-            #     print(f"Episode {key}:")
-            #     print(f"  Velocities: {data['velocities']}")
-            #     print(f"  Angles: {data['angles']}")
-            #     print(f"  Reward: {data['reward']}")
-
-            # Example maximum velocity and angle
+            # Maximum velocity and angle
             max_velocity = np.max(self.gridAdaptiveCurric.grid[:, 0])
             max_angle = np.max(self.gridAdaptiveCurric.grid[:, 1])
 
             # Tolerance for "closeness"
             tolerance = 1e-2
 
-            # Containers for the filtered data
-            filtered_rewards = []
-            filtered_velocities = []
-            filtered_angles = []
+            #  for the filtered data
+            filtered_episodes = {}
 
             # Filter episodes
-            for key, data in episode_data.items():
-                # Check if the target velocity or angle is close to the maximum
-                target_velocity_close = np.abs(data['velocities'][:, 1] - max_velocity).mean() <= tolerance
-                target_angle_close = np.abs(data['angles'][:, 1] - max_angle).mean() <= tolerance
-
-                if target_velocity_close or target_angle_close:
-                    # print("-------------------------> Episode", key, "is close to the maximum.")
-                    filtered_rewards.append(data['reward'])
-                    filtered_velocities.append(data['velocities'])
-                    filtered_angles.append(data['angles'])
-
-            # Compute means
-            if filtered_rewards != []:
-                print("Updating grid")
-                mean_reward = np.mean(filtered_rewards)
-                mean_velocity = np.mean(np.vstack(filtered_velocities)[:,1].mean())
-                mean_angle = np.mean(np.vstack(filtered_angles)[:,1].mean())
-
-                self.gridAdaptiveCurric.update(
-                        mean_velocity, mean_angle, mean_reward
+            for global_worker_id, data in episode_data.items():
+                for episode, tmp_data in data.items():
+                    if tmp_data['velocity'][0][1] >= max_velocity - tolerance or tmp_data['angle'][0][1] >= max_angle - tolerance:
+                        if global_worker_id not in filtered_episodes:
+                            filtered_episodes[global_worker_id] = {}
+                        filtered_episodes[global_worker_id][episode] = tmp_data
+            
+            # Update the grid adaptive curriculum
+            for global_worker_id, data in filtered_episodes.items():
+                for episode, tmp_data in data.items():
+                    mean_vel = np.mean(tmp_data['velocity'])
+                    mean_angle = np.mean(tmp_data['angle'])
+                    reward = tmp_data['reward']
+                    self.gridAdaptiveCurric.update(
+                        mean_vel, mean_angle, reward
                     )
 
-            # Output results
-            # print("Mean Reward:", mean_reward)
-            # print("Mean Velocities:", mean_velocities)
-            # print("Mean Angles:", mean_angles)
-
-            # print("-----------------------------------")
-            # print("steps: ", 9*4)
-            # print("steps ausgelassen, weil episode am Ende der j-Schleife noch nicht beendet ist: ", 1+4+8)
-            # print("sum of episode_lengths: ", sum(episode_lengths))
-            # print("length of collected_velocities: ", len(collected_velocities))
-            # print("length of episode_lengths: ", len(episode_lengths))
-            # print("length of all velocities: ", len(np.concatenate([data['velocities'] for data in episode_data.values()])))
 
 
 
@@ -422,6 +377,51 @@ class CurriculumBufferBWR(Buffer):
             self.last_task,
             self.gridAdaptiveCurric
         )
+
+    def _set_up_episode_data(self, collected_velocities, collected_angles, worker_episode_rewards):
+        episode_data = {}
+        # Loop through the entries and populate the nested dictionary with velocities
+        for global_worker_id, episode, velocity in collected_velocities:
+            if global_worker_id not in episode_data:
+                episode_data[global_worker_id] = {}  # Create dictionary for the global_worker_id
+
+            # Ensure the inner key (episode) exists
+            if episode not in episode_data[global_worker_id]:
+                episode_data[global_worker_id][episode] = {
+                    'velocity': [],  
+                    'angle': [],
+                    'reward': None
+                }
+
+            episode_data[global_worker_id][episode]['velocity'].append(velocity)
+        # Loop through the entries and populate the nested dictionary with angles
+        for global_worker_id, episode, angle in collected_angles:
+            episode_data[global_worker_id][episode]['angle'].append(angle)
+
+        # Add rewards for each episode
+        for global_worker_id, rewards in worker_episode_rewards.items():
+            for episode_id, reward in enumerate(rewards):
+                if episode_id in episode_data[global_worker_id]:
+                    episode_data[global_worker_id][episode_id]['reward'] = reward
+                elif episode_id not in episode_data[global_worker_id] and episode_id == len(rewards) - 1 and reward == 0:
+                    pass
+                else:
+                    raise ValueError(f"Episode {episode_id} not found for worker {global_worker_id}")
+
+        # remove episodes that are still running
+        for global_worker_id in range(len(episode_data.keys())):
+            if worker_episode_rewards[global_worker_id][-1] != 0:
+                del episode_data[global_worker_id][max(episode_data[global_worker_id].keys())]
+
+        # Convert velocities and angles to numpy arrays for consistency
+        for global_worker_id, data in episode_data.items():
+            for episode, tmp_data in data.items():
+                tmp_data['velocity'] = np.array(tmp_data['velocity'])
+                tmp_data['angle'] = np.array(tmp_data['angle'])            
+
+        return episode_data
+
+
 
     # not used in the current implementation, was used just for changing the environment
     def _get_env_index(
