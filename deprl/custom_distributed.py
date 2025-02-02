@@ -45,20 +45,67 @@ def proc(
             elif message == "get_reward_scale":
                 for env in envs.environments:
                     env_queue.put(env.unwrapped.reward_scale)
-            elif message == "get_vel":
+            elif message.startswith('get_vel:'):
                 # print('message get_vel', message)
-                for env in envs.environments:
+                group_id = int(message.split(':')[1])
+                for worker_id, env in enumerate(envs.environments):
                     # print('env get_vel', env)
                     # print('env_queue', env_queue)
                     # print('env_queue.put', env_queue.put)
                     # env.unwrapped.set_current_target_velocity(1) # Test setting vel for testing
                     #print('current_target_vel:', env.unwrapped.get_current_target_velocity())
                     env_queue.put(
+                        (group_id, 
+                        worker_id,
+                        envs.current_episodes[worker_id],
                         (
                             env.unwrapped.model_velocity(),
                             env.unwrapped.current_target_vel,
-                        )
+                        ))
                     )
+            elif message.startswith('get_angle:'):
+                group_id = int(message.split(':')[1])
+                for worker_id, env in enumerate(envs.environments):
+                    env_queue.put(
+                        (group_id, 
+                        worker_id,
+                        envs.current_episodes[worker_id],
+                        (
+                            np.arctan2(
+                                env.unwrapped.model.com_vel().z,
+                                env.unwrapped.model.com_vel().x,
+                            ),
+                            env.unwrapped.angle,
+                        ))
+                    )
+            elif message.startswith('get_episode_lengths:'):
+                group_id = int(message.split(':')[1])
+                for worker_id, _ in enumerate(envs.environments):
+                    env_queue.put(
+                        (group_id, 
+                        worker_id,
+                        envs.episode_lengths[worker_id])
+                    )
+            elif message.startswith('get_episode_rewards:'):
+                group_id = int(message.split(':')[1])
+                for worker_id, _ in enumerate(envs.environments):
+                    env_queue.put(
+                        (group_id, 
+                        worker_id,
+                        envs.episode_rewards[worker_id])
+                    )
+            elif message == "reset_worker_data":
+                for worker_id, _ in enumerate(envs.environments):
+                    # Keep the current episode for still running episodes
+                    if envs.lengths[worker_id] != 0:  # If the worker has not completed the episode
+                        envs.current_episodes[worker_id] = 0
+                        envs.episode_lengths[worker_id] = envs.episode_lengths[worker_id][-1:]  # Keep the last entry
+                        envs.episode_rewards[worker_id] = envs.episode_rewards[worker_id][-1:]  # Keep the last entry
+                    else:  # Clear values for completed episodes
+                        envs.current_episodes[worker_id] = 0
+                        envs.episode_lengths[worker_id] = [0]
+                        envs.episode_rewards[worker_id] = [0]
+
             elif message == "get_angle":
                 # index_test=0
                 for env in envs.environments:
@@ -117,6 +164,9 @@ class Sequential:
         self.action_space = self.environments[0].action_space
         self.name = self.environments[0].name
         self.num_workers = workers
+        self.current_episodes = [0] * self.num_workers
+        self.episode_lengths = [[0] for _ in range(self.num_workers)]
+        self.episode_rewards = [[0] for _ in range(self.num_workers)]
 
     def initialize(self, seed):
         # group seed is given, the others are determined from it
@@ -162,11 +212,15 @@ class Sequential:
             reset = term or self.lengths[i] == self._max_episode_steps
             next_observations.append(ob)
             rewards.append(rew)
+            self.episode_rewards[i][-1] += rew
+            self.episode_lengths[i][-1] += 1
             resets.append(reset)
 
             terminations.append(term)
-
             if reset:
+                self.current_episodes[i] += 1
+                self.episode_lengths[i].append(0)
+                self.episode_rewards[i].append(0)
                 ob = self.environments[i].reset(
                     angle_range=angle_range,
                     vel_range=vel_range,
@@ -203,11 +257,31 @@ class Sequential:
             env.render_substep()
 
     def get_vel(self):
-        return [[env.unwrapped.model_velocity(), env.unwrapped.current_target_vel] for env in self.environments]
+        return [(worker_id, self.current_episodes[worker_id], (env.unwrapped.model_velocity(), env.unwrapped.current_target_vel)) for worker_id, env in enumerate(self.environments)]
     def get_angles(self):
-        return [[np.arctan2(env.unwrapped.model.com_vel().z, env.unwrapped.model.com_vel().x), env.unwrapped.angle] for env in self.environments]
+        return [(worker_id, self.current_episodes[worker_id], (np.arctan2(env.unwrapped.model.com_vel().z, env.unwrapped.model.com_vel().x), env.unwrapped.angle)) for worker_id, env in enumerate(self.environments)]
     def get_reward_scale(self):
         return [env.unwrapped.reward_scale for env in self.environments]
+    def get_episode_lengths(self):
+        episode_lengths = {}
+        for worker_id, _ in enumerate(self.environments):
+            episode_lengths[worker_id] = self.episode_lengths[worker_id]
+        return episode_lengths
+    def get_episode_rewards(self):
+        episode_rewards = {}
+        for worker_id, _ in enumerate(self.environments):
+            episode_rewards[worker_id] = self.episode_rewards[worker_id]
+        return episode_rewards
+    def reset_worker_data(self):
+        for worker_id, _ in enumerate(self.environments):
+            if self.lengths[worker_id] != 0:
+                self.current_episodes[worker_id] = 0
+                self.episode_lengths[worker_id] = self.episode_lengths[worker_id][-1:]
+                self.episode_rewards[worker_id] = self.episode_rewards[worker_id][-1:]
+            else:
+                self.current_episodes[worker_id] = 0
+                self.episode_lengths[worker_id] = [0]
+                self.episode_rewards[worker_id] = [0]
 
 
 class Parallel:
@@ -370,14 +444,46 @@ class Parallel:
                 models.append(self.env_queue.get())
 
     def get_vel(self):
-        for pipe in self.action_pipes:
-            pipe.send("get_vel")
+        for group_id, pipe in enumerate(self.action_pipes):
+            # pipe.send("get_vel")
+            pipe.send(f'get_vel:{group_id}')
         vels = []
-        for _ in self.action_pipes:
-            for _ in range(self.workers_per_group):
-                vels.append(self.env_queue.get())
-
+        for _ in range(self.worker_groups * self.workers_per_group):
+            vel_info = self.env_queue.get()
+            group_id, worker_id, episode, vel_info = vel_info
+            global_worker_id = group_id * self.workers_per_group + worker_id
+            vels.append((global_worker_id, episode, vel_info))
+            # vel_info = self.env_queue.get()
+            # vels.append(vel_info)
         return vels
+    
+    def get_episode_lengths(self):
+        for group_id, pipe in enumerate(self.action_pipes):
+            pipe.send(f'get_episode_lengths:{group_id}')
+        episode_lengths = {}
+        for _ in range(self.worker_groups * self.workers_per_group):
+            episode_lengths_info = self.env_queue.get()
+            group_id, worker_id, episode_lengths_info = episode_lengths_info
+            global_worker_id = group_id * self.workers_per_group + worker_id
+            episode_lengths[global_worker_id] = episode_lengths_info
+        return episode_lengths
+    
+    def get_episode_rewards(self):
+        for group_id, pipe in enumerate(self.action_pipes):
+            pipe.send(f'get_episode_rewards:{group_id}')
+        episode_rewards = {}
+        for _ in range(self.worker_groups * self.workers_per_group):
+            episode_rewards_info = self.env_queue.get()
+            group_id, worker_id, episode_rewards_info = episode_rewards_info
+            global_worker_id = group_id * self.workers_per_group + worker_id
+            episode_rewards[global_worker_id] = episode_rewards_info
+        return episode_rewards
+    
+    def reset_worker_data(self):
+        for pipe in self.action_pipes:
+            pipe.send("reset_worker_data")
+
+
     
     def get_reward_scale(self):
         # print("Requesting reward_scale from workers...")
@@ -398,14 +504,25 @@ class Parallel:
         # print("Completed collecting reward_scale.")
         return reward_scaled[0]
 
-    def get_angles(self):
-        for pipe in self.action_pipes:
-            pipe.send("get_angle")
-        angles = []
-        for _ in self.action_pipes:
-            for _ in range(self.workers_per_group):
-                angles.append(self.env_queue.get())
+    # def get_angles(self):
+    #     for pipe in self.action_pipes:
+    #         pipe.send("get_angle")
+    #     angles = []
+    #     for _ in self.action_pipes:
+    #         for _ in range(self.workers_per_group):
+    #             angles.append(self.env_queue.get())
 
+    #     return angles
+
+    def get_angles(self):
+        for group_id, pipe in enumerate(self.action_pipes):
+            pipe.send(f'get_angle:{group_id}')
+        angles = []
+        for _ in range(self.worker_groups * self.workers_per_group):
+            angle_info = self.env_queue.get()
+            group_id, worker_id, episode, angle_info = angle_info
+            global_worker_id = group_id * self.workers_per_group + worker_id
+            angles.append((global_worker_id, episode, angle_info))
         return angles
 
     def curriculum_adjust(self, score):
