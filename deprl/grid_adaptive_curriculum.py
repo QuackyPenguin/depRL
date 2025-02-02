@@ -4,12 +4,10 @@ from scipy.interpolate import griddata
 
 
 class GridAdaptiveCurriculum:
-    def __init__(self, vel_range=(-1.0, 1.0), angle_range=(-1, 1), resolution=(0.5, 0.5), success_threshold=1000, seed = None):
+    def __init__(self, vel_range=(-1.0, 1.0), angle_range=(-1, 1), resolution=(0.5, 0.5), success_threshold=1000):
         self.resolution_vel = resolution[0]
         self.resolution_angle = resolution[1]
         self.success_threshold = success_threshold
-
-        self.rng = np.random.RandomState(seed) if seed is not None else np.random.RandomState()
 
         self._grid = self._create_grid(vel_range, angle_range, self.resolution_vel, self.resolution_angle)
 
@@ -172,16 +170,16 @@ class GridAdaptiveCurriculum:
     def _sample_node(self):
         """default to uniform"""
         if self.weights.sum() == 0:                                                              ### weights are initialized with 0
-            index = self.rng.choice(len(self.grid), 1)                                           ### weights are initialized with 0
+            index = np.random.choice(len(self.grid), 1)                                           ### weights are initialized with 0
         else:                                                                                       ### weights are initialized with 0
-            index = self.rng.choice(len(self.grid), 1, p=self.weights / self.weights.sum())          ### weights are initialized with 0
-        # index = self.rng.choice(len(self.grid), 1, p=self.weights)                            ### weights are initialized with 1 and then normalized
+            index = np.random.choice(len(self.grid), 1, p=self.weights / self.weights.sum())          ### weights are initialized with 0
+        # index = np.random.choice(len(self.grid), 1, p=self.weights)                            ### weights are initialized with 1 and then normalized
         return self.grid[index][0], index[0]
 
     def _sample_uniform_from_cell(self, center):
         cell_sizes = np.array([self.resolution_vel, self.resolution_angle])
         low, high = center + cell_sizes / 2, center - cell_sizes / 2
-        return self.rng.uniform(low, high)
+        return np.random.uniform(low, high)
 
     def sample(self):
         center, index = self._sample_node()
