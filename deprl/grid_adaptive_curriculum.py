@@ -165,6 +165,7 @@ class GridAdaptiveCurriculum:
                 self._extend_grid_angle_top()
             if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi:
                 self._extend_grid_angle_bottom()
+            _, node_idx = self._get_node(velocity, angle)
             self._adapt_weights(node_idx)
     
     def _sample_node(self):
@@ -183,16 +184,18 @@ class GridAdaptiveCurriculum:
 
     def sample(self):
         center, index = self._sample_node()
-        return self._sample_uniform_from_cell(center), index
+        # return self._sample_uniform_from_cell(center), index
+        return center, index
     
     def plot(self, title, label, save_path=None):
         fig = plt.figure()
         # plt.scatter(self.grid[:,0], self.grid[:,1],s=25, c = self.weights, cmap='viridis')
         scatter = plt.scatter(self.grid[:,0], self.grid[:,1], s=self.weights*100, c=self.weights, cmap='viridis', alpha=1, edgecolors='w', label = label)
+        plt.gca().add_patch(plt.Rectangle((np.min(self.grid[:,0]), np.min(self.grid[:, 1])), np.max(self.grid[:, 0]), np.max(self.grid[:, 1]) - np.min(self.grid[:, 1]), fill=False, edgecolor='red', linewidth=2))
         plt.colorbar(scatter, label="Weight")
         plt.clim(0, 1)
-        plt.xlim(0,1.25)
-        plt.ylim(-np.pi,np.pi)
+        # plt.xlim(0,1.25)
+        # plt.ylim(-np.pi,np.pi)
         plt.xlabel('Velocity', fontsize=12)
         plt.ylabel('Angle', fontsize=12)
         plt.title(title, fontsize=14)
