@@ -59,8 +59,8 @@ def proc(
                         worker_id,
                         envs.current_episodes[worker_id],
                         (
-                            env.unwrapped.model_velocity(),
-                            env.unwrapped.current_target_vel,
+                            env.unwrapped.model_velocity() / env.unwrapped.target_vel,
+                            env.unwrapped.current_target_vel / env.unwrapped.target_vel,
                         ))
                     )
             elif message.startswith('get_angle:'):
@@ -257,7 +257,7 @@ class Sequential:
             env.render_substep()
 
     def get_vel(self):
-        return [(worker_id, self.current_episodes[worker_id], (env.unwrapped.model_velocity(), env.unwrapped.current_target_vel)) for worker_id, env in enumerate(self.environments)]
+        return [(worker_id, self.current_episodes[worker_id], (env.unwrapped.model_velocity()/env.unwrapped.target_vel, env.unwrapped.current_target_vel/env.unwrapped.target_vel)) for worker_id, env in enumerate(self.environments)]
     def get_angles(self):
         return [(worker_id, self.current_episodes[worker_id], (np.arctan2(env.unwrapped.model.com_vel().z, env.unwrapped.model.com_vel().x), env.unwrapped.angle)) for worker_id, env in enumerate(self.environments)]
     def get_reward_scale(self):
