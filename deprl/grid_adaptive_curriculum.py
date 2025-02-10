@@ -36,9 +36,7 @@ class GridAdaptiveCurriculum:
         """
         vel_values = np.arange(vel_range[0], vel_range[1] + resolution_vel/10, resolution_vel)
         angle_values = np.arange(angle_range[0], angle_range[1] + resolution_angle/10, resolution_angle)
-        # grid = np.array([[vel, angle, 1] for vel in vel_values for angle in angle_values])                ### weights are initialized with 1 and then normalized
-        # grid[:, 2] = 1/np.sum(grid[:, 2])                                                                 ### weights are initialized with 1 and then normalized
-        grid = np.array([[vel, angle, 0] for vel in vel_values for angle in angle_values])                  ### weights are initialized with 0
+        grid = np.array([[vel, angle, 1] for vel in vel_values for angle in angle_values])                  ### weights are initialized with 0 (for adding +0.2) or 1)
 
         return grid
     
@@ -55,12 +53,10 @@ class GridAdaptiveCurriculum:
         
         # Erstellen der neuen Punkte für die Erweiterung
         max_velocity += self.resolution_vel
-        # new_points = np.array([[max_velocity, a, np.min(self.weights)] for a in angle_values])     ### weights are initialized with 1 and then normalized
-        new_points = np.array([[max_velocity, a, 0] for a in angle_values])                          ### weights are initialized with 0
+        new_points = np.array([[max_velocity, a, 0] for a in angle_values])
 
         # Erweitern des Grids um die neuen Punkte
         self._grid = np.row_stack((self._grid[:, :], new_points))
-        # self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)                                 ### weights are initialized with 1 and then normalized
 
     def _extend_grid_angle_top(self):
         """
@@ -76,14 +72,13 @@ class GridAdaptiveCurriculum:
 
         # Erstellen der neuen Punkte für die Erweiterung
         max_angle += self.resolution_angle
-        # new_points = np.array([[v, max_angle, np.min(self.weights)] for v in velocity_values])    ### weights are initialized with 1 and then normalized
-        new_points = np.array([[v, max_angle, 0] for v in velocity_values])                          ### weights are initialized with 0
+        new_points = np.array([[v, max_angle, 0] for v in velocity_values])
 
         new_point_indices = np.arange(len(angle_values), len(self.grid) + len(angle_values), len(angle_values))
 
         # Erweitern des Grids um die neuen Punkte
         self._grid = np.insert(self._grid, new_point_indices, new_points, axis=0)  
-        # self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)                                ### weights are initialized with 1 and then normalized
+
 
     def _extend_grid_angle_bottom(self):
         """
@@ -99,14 +94,13 @@ class GridAdaptiveCurriculum:
 
         # Erstellen der neuen Punkte für die Erweiterung
         min_angle -= self.resolution_angle
-        # new_points = np.array([[v, min_angle, np.min(self.weights)] for v in velocity_values])    ### weights are initialized with 1 and then normalized
-        new_points = np.array([[v, min_angle, 0] for v in velocity_values])                          ### weights are initialized with 0
+        new_points = np.array([[v, min_angle, 0] for v in velocity_values])
 
         new_point_indices = np.arange(0, len(self.grid), len(angle_values))
 
         # Erweitern des Grids um die neuen Punkte
         self._grid = np.insert(self._grid, new_point_indices, new_points, axis=0)
-        # self._grid[:, 2] = self._grid[:, 2] / np.sum(self.weights)                                ### weights are initialized with 1 and then normalized
+
     
     def _get_adjacents(self, index):
         resolution = np.array([self.resolution_vel, self.resolution_angle])
@@ -117,20 +111,19 @@ class GridAdaptiveCurriculum:
 
         return adjacent_inds
     
-    def _adapt_weights_new(self, index):
-        ### weights are initializd with 0 + weights are adapted diffently: instead of adding 0.2, the weights are set to 1 for the node itself and for all adjacent nodes
+    def _adapt_weights(self, index):
+        ### weights are initialized with 1 + instead of adding 0.2, the weights are set to 1 for the node itself and for all adjacent nodes
         self._grid[index, 2] = 1
         adjacents = self._get_adjacents(index)
         adjacent_inds = np.array(adjacents.nonzero()[0])
         self._grid[adjacent_inds, 2] = 1
 
-    def _adapt_weights(self, index):
+    def _adapt_weights_normal(self, index):
+        # weights are initialized with 0 and weight is added by +0.4 for the node itself and +0.2 for all adjacent nodes
         self._grid[index, 2] = np.clip(self._grid[index, 2] + 0.2, 0, 1)
-        # self._grid[:,2] = self._grid[:,2] / np.sum(self.weights)                          ### weights are initialized with 1 and then normalized
         adjacents = self._get_adjacents(index)
         adjacent_inds = np.array(adjacents.nonzero()[0])
         self._grid[adjacent_inds, 2] = np.clip(self._grid[adjacent_inds, 2] + 0.2, 0, 1)
-        # self._grid[:,2] = self._grid[:,2] / np.sum(self.weights)  
 
     def _get_node(self, velocity, angle):
         # Find the closest grid point to the given velocity and angle
@@ -156,25 +149,32 @@ class GridAdaptiveCurriculum:
             return True
         return False
 
-    def update(self, velocity, angle, reward):
+    def update(self, velocity, angle, reward, extend_velocities=True, extend_angle_top=True, extend_angle_bottom=True):
         if reward >= self.success_threshold:
             _, node_idx = self._get_node(velocity, angle)
-            if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25:
+            if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25 and extend_velocities:
                 self._extend_grid_velocity()
-            if self._is_border_angle_top(node_idx) and self.grid[node_idx, 1] < np.pi:
+                extend_velocities = False
+                print("Extended grid along velocity axis")
+            if self._is_border_angle_top(node_idx) and self.grid[node_idx, 1] < np.pi/8 and extend_angle_top: # <np.pi
                 self._extend_grid_angle_top()
-            if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi:
+                extend_angle_top = False
+                print("Extended grid along angle top angle axis")
+            if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi/8 and extend_angle_bottom: # >-np.pi
                 self._extend_grid_angle_bottom()
+                extend_angle_bottom = False
+                print("Extended grid along angle bottom angle axis")
             _, node_idx = self._get_node(velocity, angle)
             self._adapt_weights(node_idx)
+            print("Adapted weights")
+        return extend_velocities, extend_angle_top, extend_angle_bottom
     
     def _sample_node(self):
         """default to uniform"""
-        if self.weights.sum() == 0:                                                              ### weights are initialized with 0
-            index = np.random.choice(len(self.grid), 1)                                           ### weights are initialized with 0
-        else:                                                                                       ### weights are initialized with 0
-            index = np.random.choice(len(self.grid), 1, p=self.weights / self.weights.sum())          ### weights are initialized with 0
-        # index = np.random.choice(len(self.grid), 1, p=self.weights)                            ### weights are initialized with 1 and then normalized
+        if self.weights.sum() == 0:                                                              
+            index = np.random.choice(len(self.grid), 1)
+        else:
+            index = np.random.choice(len(self.grid), 1, p=self.weights / self.weights.sum())
         return self.grid[index][0], index[0]
 
     def _sample_uniform_from_cell(self, center):
@@ -191,7 +191,7 @@ class GridAdaptiveCurriculum:
         fig = plt.figure()
         # plt.scatter(self.grid[:,0], self.grid[:,1],s=25, c = self.weights, cmap='viridis')
         scatter = plt.scatter(self.grid[:,0], self.grid[:,1], s=self.weights*100, c=self.weights, cmap='viridis', alpha=1, edgecolors='w', label = label)
-        plt.gca().add_patch(plt.Rectangle((np.min(self.grid[:,0]), np.min(self.grid[:, 1])), np.max(self.grid[:, 0]), np.max(self.grid[:, 1]) - np.min(self.grid[:, 1]), fill=False, edgecolor='red', linewidth=2))
+        plt.gca().add_patch(plt.Rectangle((np.min(self.grid[:,0]), np.min(self.grid[:, 1])), np.max(self.grid[:, 0]) - np.min(self.grid[:,0]), np.max(self.grid[:, 1]) - np.min(self.grid[:, 1]), fill=False, edgecolor='red', linewidth=2))
         plt.colorbar(scatter, label="Weight")
         plt.clim(0, 1)
         # plt.xlim(0,1.25)
