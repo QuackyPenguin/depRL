@@ -21,7 +21,7 @@ class CurriculumBufferBWR(Buffer):
 
         # initialize the environment index, angle range, velocity range, and standing probability
         self.epochs_above_threshold = 0
-        self.last_env_index = 0
+        self.last_env_index = 1
         self.last_angle_range = (0, 0)
         self.last_vel_range = (0,0) #(1, 1)
         self.last_stand_prob = 0
@@ -341,7 +341,7 @@ class CurriculumBufferBWR(Buffer):
                 # elseeee = 0
                 for global_worker_id, data in episode_data.items():
                     for episode, tmp_data in data.items():
-                        print("tmp_data['angle'][0][1] ", tmp_data['angle'][0][1], " max_angle ", max_angle," tmp_data['velocity'][0][1] ", tmp_data['velocity'][0][1], " max_velocity ", max_velocity,"global_worker_id", global_worker_id, "episode", episode)
+                        # print("tmp_data['angle'][0][1] ", tmp_data['angle'][0][1], " max_angle ", max_angle," tmp_data['velocity'][0][1] ", tmp_data['velocity'][0][1], " max_velocity ", max_velocity,"global_worker_id", global_worker_id, "episode", episode)
                         if abs(tmp_data['velocity'][0][1] - max_velocity) <= tolerance:
                             if global_worker_id not in filtered_episodes_vel:
                                 filtered_episodes_vel[global_worker_id] = {}
@@ -419,7 +419,32 @@ class CurriculumBufferBWR(Buffer):
                 #             target_vel, target_angle, reward
                 #             )
                         
-                # Update the grid adaptive curriculum due to the mean values of all episodes in each dictionary
+                # # Update the grid adaptive curriculum due to the mean values of all episodes in each dictionary
+                # for i in range(3):
+                #     if i == 0:
+                #         filtered_episodes = filtered_episodes_vel
+                #         print(i, "filtered_episodes_vel len", len(filtered_episodes))
+                #     elif i == 1:
+                #         filtered_episodes = filtered_episodes_max_angle
+                #         print(i, "filtered_episodes_max_angle len", len(filtered_episodes))
+                #     elif i == 2:
+                #         filtered_episodes = filtered_episodes_min_angle
+                #         print(i, "filtered_episodes_min_angle len", len(filtered_episodes))
+                        
+                #     if filtered_episodes != {}:
+                #         total_steps = np.sum([np.shape(tmp_data["velocity"])[0] for worker_data in filtered_episodes.values() for tmp_data in worker_data.values()])
+                #         mean_target_vel = np.sum([tmp_data['velocity'][0][1] * np.shape(tmp_data["velocity"])[0] for worker_data in filtered_episodes.values() for tmp_data in worker_data.values()]) / total_steps
+                #         mean_target_angle = np.sum([tmp_data['angle'][0][1] * np.shape(tmp_data["velocity"])[0] for worker_data in filtered_episodes.values() for tmp_data in worker_data.values()]) / total_steps
+                #         mean_reward = np.mean([tmp_data['reward'] for worker_data in filtered_episodes.values() for tmp_data in worker_data.values()])
+                #         print(i, "target_vel", mean_target_vel, "target_angle", mean_target_angle, "reward", mean_reward)
+                #         self.gridAdaptiveCurric.update(
+                #             mean_target_vel, mean_target_angle, mean_reward
+                #             )
+
+                # Update the weights at each boundary several times, but only extend one time at each boundary
+                extend_velocity = True
+                extend_angle_top = True
+                extend_angle_bottom = True
                 for i in range(3):
                     if i == 0:
                         filtered_episodes = filtered_episodes_vel
@@ -432,14 +457,19 @@ class CurriculumBufferBWR(Buffer):
                         print(i, "filtered_episodes_min_angle len", len(filtered_episodes))
                         
                     if filtered_episodes != {}:
-                        total_steps = np.sum([np.shape(tmp_data["velocity"])[0] for worker_data in filtered_episodes.values() for tmp_data in worker_data.values()])
-                        mean_target_vel = np.sum([tmp_data['velocity'][0][1] * np.shape(tmp_data["velocity"])[0] for worker_data in filtered_episodes.values() for tmp_data in worker_data.values()]) / total_steps
-                        mean_target_angle = np.sum([tmp_data['angle'][0][1] * np.shape(tmp_data["velocity"])[0] for worker_data in filtered_episodes.values() for tmp_data in worker_data.values()]) / total_steps
-                        mean_reward = np.mean([tmp_data['reward'] for worker_data in filtered_episodes.values() for tmp_data in worker_data.values()])
-                        print(i, "target_vel", mean_target_vel, "target_angle", mean_target_angle, "reward", mean_reward)
-                        self.gridAdaptiveCurric.update(
-                            mean_target_vel, mean_target_angle, mean_reward
-                            )
+                        for worker_id, worker_data in filtered_episodes.items():
+                            for episode, tmp_data in worker_data.items():
+                                tmp_data = filtered_episodes[worker_id][episode]
+                                target_vel = tmp_data['velocity'][0][1]
+                                target_angle = tmp_data['angle'][0][1]
+                                reward = tmp_data['reward']
+                                print(i, "target_vel", target_vel, "target_angle", target_angle, "reward", reward, "worker_id", worker_id, "episode", episode)
+                                extend_velocity, extend_angle_top, extend_angle_bottom = self.gridAdaptiveCurric.update(
+                                    target_vel, target_angle, reward, extend_velocity, extend_angle_top, extend_angle_bottom
+                                    )
+            elif self.task == "do_not_update":
+                print("task is do_not_update")
+
 
 
 
