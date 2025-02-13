@@ -294,15 +294,8 @@ class CurriculumBufferBWR(Buffer):
                     self.last_angle_range = (-angle_percent, angle_percent)    
 
         elif self.mode_target == 3:
-            # # use the grid adaptive curriculum to select the next task
-            # mean_vel = np.mean(velocities[:][0])
-            # mean_angle = np.mean(angles[:][0])
-            # mean_reward = np.mean(rewards)
-            # self.gridAdaptiveCurric.update(
-            #     mean_vel, mean_angle, mean_reward
-            # )
-
             # # only use those episodes for the updates where the target velocity or angle are close to the current maximum velocity or angle
+            
             # Dictionary to store episode data
             episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
             
