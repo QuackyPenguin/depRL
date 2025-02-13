@@ -21,7 +21,7 @@ class CurriculumBufferBWR(Buffer):
 
         # initialize the environment index, angle range, velocity range, and standing probability
         self.epochs_above_threshold = 0
-        self.last_env_index = 1
+        self.last_env_index = 0
         self.last_angle_range = (0, 0)
         self.last_vel_range = (0,0) #(1, 1)
         self.last_stand_prob = 0
@@ -31,9 +31,12 @@ class CurriculumBufferBWR(Buffer):
 
         # initialize the grid adaptive curriculum
         self.gridAdaptiveCurric = GridAdaptiveCurriculum(
-            vel_range=(0.0, 0.0), angle_range=(0.0,0.0), resolution=(0.1, np.pi/8), success_threshold=2000
+            vel_range=(0.0, 0.0), angle_range=(0.0, 0.0), resolution=(0.1, np.pi/8), success_threshold=5000, decay_rate=0.5
         )
         self.task = "standing"
+        self.success_counter_vel = 0
+        self.success_counter_angle_top = 0
+        self.success_counter_angle_bottom = 0
 
         # get the mode for switching the environment and the targets (angle, velocity, standing)
         self.mode_env = kwargs.pop("mode_env", 0)
@@ -457,16 +460,18 @@ class CurriculumBufferBWR(Buffer):
                         print(i, "filtered_episodes_min_angle len", len(filtered_episodes))
                         
                     if filtered_episodes != {}:
+                        print(i, self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom, steps_per)
                         for worker_id, worker_data in filtered_episodes.items():
                             for episode, tmp_data in worker_data.items():
                                 tmp_data = filtered_episodes[worker_id][episode]
                                 target_vel = tmp_data['velocity'][0][1]
                                 target_angle = tmp_data['angle'][0][1]
                                 reward = tmp_data['reward']
-                                print(i, "target_vel", target_vel, "target_angle", target_angle, "reward", reward, "worker_id", worker_id, "episode", episode)
-                                extend_velocity, extend_angle_top, extend_angle_bottom = self.gridAdaptiveCurric.update(
-                                    target_vel, target_angle, reward, extend_velocity, extend_angle_top, extend_angle_bottom
+                                # print(i, "target_vel", target_vel, "target_angle", target_angle, "reward", reward, "worker_id", worker_id, "episode", episode)
+                                self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom = self.gridAdaptiveCurric.update(
+                                    steps_per, target_vel, target_angle, reward, self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom
                                     )
+                        print(i, self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom)
             elif self.task == "do_not_update":
                 print("task is do_not_update")
 
