@@ -4,10 +4,11 @@ from scipy.interpolate import griddata
 
 
 class GridAdaptiveCurriculum:
-    def __init__(self, vel_range=(-1.0, 1.0), angle_range=(-1, 1), resolution=(0.5, 0.5), success_threshold=1000):
+    def __init__(self, vel_range=(-1.0, 1.0), angle_range=(-1, 1), resolution=(0.5, 0.5), success_threshold=1000, decay_rate = 0):
         self.resolution_vel = resolution[0]
         self.resolution_angle = resolution[1]
         self.success_threshold = success_threshold
+        self.decay_rate = decay_rate
 
         self._grid = self._create_grid(vel_range, angle_range, self.resolution_vel, self.resolution_angle)
 
@@ -149,25 +150,33 @@ class GridAdaptiveCurriculum:
             return True
         return False
 
-    def update(self, velocity, angle, reward, extend_velocities=True, extend_angle_top=True, extend_angle_bottom=True):
+    def update(self, training_progress, velocity, angle, reward, success_counter_vel =True, success_counter_angle_top=True, success_counter_angle_bottom=True):
         if reward >= self.success_threshold:
             _, node_idx = self._get_node(velocity, angle)
-            if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25 and extend_velocities:
-                self._extend_grid_velocity()
-                extend_velocities = False
-                print("Extended grid along velocity axis")
-            if self._is_border_angle_top(node_idx) and self.grid[node_idx, 1] < np.pi/8 and extend_angle_top: # <np.pi
-                self._extend_grid_angle_top()
-                extend_angle_top = False
-                print("Extended grid along angle top angle axis")
-            if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi/8 and extend_angle_bottom: # >-np.pi
-                self._extend_grid_angle_bottom()
-                extend_angle_bottom = False
-                print("Extended grid along angle bottom angle axis")
+            if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25:
+                if success_counter_vel > 100* (1-training_progress):
+                    self._extend_grid_velocity()
+                    success_counter_vel = 0
+                    print("Extended grid along velocity axis")
+                else:
+                    success_counter_vel += 1
+            if self._is_border_angle_top(node_idx) and self.grid[node_idx, 1] < np.pi/8: # <np.pi
+                if success_counter_angle_top > 100* (1-training_progress):
+                    self._extend_grid_angle_top()
+                    success_counter_angle_top = 0
+                    print("Extended grid along angle top angle axis")
+                else:
+                    success_counter_angle_top += 1
+            if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi/8: # >-np.pi
+                if success_counter_angle_bottom > 100* (1-training_progress):
+                    self._extend_grid_angle_bottom()
+                    success_counter_angle_bottom = 0
+                    print("Extended grid along angle bottom axis")
+                else:
+                    success_counter_angle_bottom += 1
             _, node_idx = self._get_node(velocity, angle)
             self._adapt_weights(node_idx)
-            print("Adapted weights")
-        return extend_velocities, extend_angle_top, extend_angle_bottom
+        return success_counter_vel, success_counter_angle_top, success_counter_angle_bottom
     
     def _sample_node(self):
         """default to uniform"""
