@@ -334,12 +334,10 @@ class CurriculumBufferBWR(Buffer):
                 # Tolerance for "closeness"
                 tolerance = 1e-2
 
-                #  for the filtered data
+                #Filter episodes
                 filtered_episodes_vel = {}
                 filtered_episodes_max_angle = {}
                 filtered_episodes_min_angle = {}
-
-                # Filter episodes
 
                 for global_worker_id, data in episode_data.items():
                     for episode, tmp_data in data.items():
@@ -357,9 +355,6 @@ class CurriculumBufferBWR(Buffer):
                             filtered_episodes_min_angle[global_worker_id][episode] = tmp_data      
 
                 # Update the weights at each boundary several times, but only extend one time at each boundary
-                extend_velocity = True
-                extend_angle_top = True
-                extend_angle_bottom = True
                 for i in range(3):
                     if i == 0:
                         filtered_episodes = filtered_episodes_vel
@@ -379,43 +374,12 @@ class CurriculumBufferBWR(Buffer):
                                 target_vel = tmp_data['velocity'][0][1]
                                 target_angle = tmp_data['angle'][0][1]
                                 reward = tmp_data['reward']
-                                # print(i, "target_vel", target_vel, "target_angle", target_angle, "reward", reward, "worker_id", worker_id, "episode", episode)
                                 self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom = self.gridAdaptiveCurric.update(
                                     steps_per, target_vel, target_angle, reward, self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom
                                     )
                         print(i, self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom)
             elif self.task == "do_not_update":
                 print("task is do_not_update")
-
-
-
-
-
-            # # update the grid several times (use mean values not over the whole epoch, but over a certain number of steps)
-            # num_of_updates = 10
-            # summed_episode_lengths = [np.sum(episode_lengths[:int((i+1)/num_of_updates*len(episode_lengths))]) for i in range(num_of_updates)]
-            # summed_episode_lengths = np.insert(summed_episode_lengths, 0, 0)
-            # for i in range(num_of_updates):
-            #     curr_rewards = rewards[int(i/num_of_updates*len(rewards)):int((i+1)/num_of_updates*len(rewards))]
-            #     curr_velocities = velocities[summed_episode_lengths[i]:summed_episode_lengths[i+1]]
-            #     curr_angles = angles[summed_episode_lengths[i]:summed_episode_lengths[i+1]]
-            #     mean_vel = np.mean(curr_velocities)
-            #     mean_angle = np.mean(curr_angles)
-            #     mean_reward = np.mean(curr_rewards)
-            #     self.gridAdaptiveCurric.update(
-            #         mean_vel, mean_angle, mean_reward
-            #     )
-
-            # # update the grid based on the mean value of the last episode
-            # last_episode_length = episode_lengths[-1]
-            # last_reward = rewards[-1]
-            # last_velocities = velocities[-last_episode_length:]
-            # last_angles = angles[-last_episode_length:]
-            # mean_vel = np.mean(last_velocities)
-            # mean_angle = np.mean(last_angles)
-            # self.gridAdaptiveCurric.update(
-            #         mean_vel, mean_angle, last_reward
-            #     )
             
 
         return (
