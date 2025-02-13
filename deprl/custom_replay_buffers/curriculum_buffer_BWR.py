@@ -344,7 +344,6 @@ class CurriculumBufferBWR(Buffer):
                 # elseeee = 0
                 for global_worker_id, data in episode_data.items():
                     for episode, tmp_data in data.items():
-                        # print("tmp_data['angle'][0][1] ", tmp_data['angle'][0][1], " max_angle ", max_angle," tmp_data['velocity'][0][1] ", tmp_data['velocity'][0][1], " max_velocity ", max_velocity,"global_worker_id", global_worker_id, "episode", episode)
                         if abs(tmp_data['velocity'][0][1] - max_velocity) <= tolerance:
                             if global_worker_id not in filtered_episodes_vel:
                                 filtered_episodes_vel[global_worker_id] = {}
@@ -353,96 +352,10 @@ class CurriculumBufferBWR(Buffer):
                             if global_worker_id not in filtered_episodes_max_angle:
                                 filtered_episodes_max_angle[global_worker_id] = {}
                             filtered_episodes_max_angle[global_worker_id][episode] = tmp_data
-                            # print("tmp_data['velocity'][0][1]", tmp_data['velocity'][0][1])
                         elif abs(tmp_data['angle'][0][1] - min_angle) <= tolerance:
                             if global_worker_id not in filtered_episodes_min_angle:
                                 filtered_episodes_min_angle[global_worker_id] = {}
-                            filtered_episodes_min_angle[global_worker_id][episode] = tmp_data
-                        # else:
-                        #     print("else: global_worker_id", global_worker_id, "episode", episode)
-                        #     print("tmp_data['angle'][0][1]", tmp_data['angle'][0][1])
-                        #     print("tmp_data['velocity'][0][1]", tmp_data['velocity'][0][1])
-                        #     elseeee += 1
-                # print("total episodes (len(episode_data))", len(episode_data))
-                # number_of_episodes = 0
-                # for worker_id in range(len(episode_data)):
-                #     number_of_episodes += len(episode_data[worker_id])
-                # print("number of episodes", number_of_episodes)
-                # number_of_episodes_2 = 0
-                # for worker_id in range(len(episode_data)):
-                #     number_of_episodes_2 += len(filtered_episodes_vel[worker_id])
-                # print("filtered episodes vel (number of episodes)", number_of_episodes_2)
-                # number_of_episodes_3 = 0
-                # for worker_id in filtered_episodes_max_angle.keys():
-                #     number_of_episodes_3 += len(filtered_episodes_max_angle[worker_id])
-                # print("filtered episodes max angle (number of episodes)", number_of_episodes_3)
-                # number_of_episodes_4 = 0
-                # for worker_id in filtered_episodes_min_angle.keys():
-                #     number_of_episodes_4 += len(filtered_episodes_min_angle[worker_id])
-                # print("filtered episodes min angle (number of episodes)", number_of_episodes_4)
-                
-                # print("elseeee", elseeee)
-                # for worker in range(len(episode_data)):
-                #     for episode in filtered_episodes_vel[worker].keys():
-                #         print(f"worker {worker}, episode {episode}, filtered episodes vel, erste velocity: ",filtered_episodes_vel[worker][episode]["velocity"][0])
-
-                # for worker in filtered_episodes_max_angle:
-                #     for episode in filtered_episodes_max_angle[worker].keys():
-                #         print(f"worker {worker}, episode {episode}, filtered episodes max angle, erste geschwindigkeit: ",filtered_episodes_max_angle[worker][episode]["velocity"][0])
-                    
-                # print("filtered episodes (len(filtered_episodes_vel))", len(filtered_episodes_vel))
-                # print("filtered episodes (len(filtered_episodes_max_angle))", len(filtered_episodes_max_angle))
-                # print("filtered episodes (len(filtered_episodes_min_angle))", len(filtered_episodes_min_angle))
-                # # print("episode data, worker 0: reward", [tmp_data['reward'] for tmp_data in episode_data[0].values()])
-                # # print("filtered episodes vel: reward", [tmp_data['reward'] for i in range(len(filtered_episodes_vel)) for tmp_data in filtered_episodes_vel[i].values()])
-                # # for i in range(len(filtered_episodes_vel)):
-                # #     print("filtered episodes vel, worker ", i, ": reward ", [tmp_data['reward'] for tmp_data in filtered_episodes_vel[i].values()])
-                # a.breddd()
-
-                # # Update the grid adaptive curriculum due to one random episode from each of the three filtered datasets
-                # for i in range(3):
-                #     if i == 0:
-                #         filtered_episodes = filtered_episodes_max_angle
-                #         print(i, "filtered_episodes_max_angle len", len(filtered_episodes))
-                #     elif i == 1:
-                #         filtered_episodes = filtered_episodes_min_angle
-                #         print(i, "filtered_episodes_min_angle len", len(filtered_episodes))
-                #     elif i == 2:
-                #         filtered_episodes = filtered_episodes_vel
-                #         print(i, "filtered_episodes_vel len", len(filtered_episodes))
-                #     if filtered_episodes != {}:
-                #         random_worker_id = np.random.choice(list(filtered_episodes.keys()))
-                #         random_episode = np.random.choice(list(filtered_episodes[random_worker_id].keys()))
-                #         tmp_data = filtered_episodes[random_worker_id][random_episode]
-                #         target_vel = tmp_data['velocity'][0][1]
-                #         target_angle = tmp_data['angle'][0][1]
-                #         reward = tmp_data['reward']
-                #         print(i, "random_worker_id", random_worker_id, "random_episode", random_episode, "target_vel", target_vel, "target_angle", target_angle, "reward", reward)
-                #         self.gridAdaptiveCurric.update(
-                #             target_vel, target_angle, reward
-                #             )
-                        
-                # # Update the grid adaptive curriculum due to the mean values of all episodes in each dictionary
-                # for i in range(3):
-                #     if i == 0:
-                #         filtered_episodes = filtered_episodes_vel
-                #         print(i, "filtered_episodes_vel len", len(filtered_episodes))
-                #     elif i == 1:
-                #         filtered_episodes = filtered_episodes_max_angle
-                #         print(i, "filtered_episodes_max_angle len", len(filtered_episodes))
-                #     elif i == 2:
-                #         filtered_episodes = filtered_episodes_min_angle
-                #         print(i, "filtered_episodes_min_angle len", len(filtered_episodes))
-                        
-                #     if filtered_episodes != {}:
-                #         total_steps = np.sum([np.shape(tmp_data["velocity"])[0] for worker_data in filtered_episodes.values() for tmp_data in worker_data.values()])
-                #         mean_target_vel = np.sum([tmp_data['velocity'][0][1] * np.shape(tmp_data["velocity"])[0] for worker_data in filtered_episodes.values() for tmp_data in worker_data.values()]) / total_steps
-                #         mean_target_angle = np.sum([tmp_data['angle'][0][1] * np.shape(tmp_data["velocity"])[0] for worker_data in filtered_episodes.values() for tmp_data in worker_data.values()]) / total_steps
-                #         mean_reward = np.mean([tmp_data['reward'] for worker_data in filtered_episodes.values() for tmp_data in worker_data.values()])
-                #         print(i, "target_vel", mean_target_vel, "target_angle", mean_target_angle, "reward", mean_reward)
-                #         self.gridAdaptiveCurric.update(
-                #             mean_target_vel, mean_target_angle, mean_reward
-                #             )
+                            filtered_episodes_min_angle[global_worker_id][episode] = tmp_data      
 
                 # Update the weights at each boundary several times, but only extend one time at each boundary
                 extend_velocity = True
