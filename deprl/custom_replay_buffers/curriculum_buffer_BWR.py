@@ -327,6 +327,9 @@ class CurriculumBufferBWR(Buffer):
                 max_velocity = np.max(self.gridAdaptiveCurric.grid[:, 0])
                 max_angle = np.max(self.gridAdaptiveCurric.grid[:, 1])
                 min_angle = np.min(self.gridAdaptiveCurric.grid[:, 1])
+                print("max velocity", max_velocity)
+                print("max angle", max_angle)
+                print ("min angle", min_angle)
 
                 # Tolerance for "closeness"
                 tolerance = 1e-2
@@ -337,11 +340,7 @@ class CurriculumBufferBWR(Buffer):
                 filtered_episodes_min_angle = {}
 
                 # Filter episodes
-                print("max velocity", max_velocity)
-                print("max angle", max_angle)
-                print ("min angle", min_angle)
-                # print("tolerance", tolerance)
-                # elseeee = 0
+
                 for global_worker_id, data in episode_data.items():
                     for episode, tmp_data in data.items():
                         if abs(tmp_data['velocity'][0][1] - max_velocity) <= tolerance:
