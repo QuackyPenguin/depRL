@@ -9,6 +9,9 @@ class GridAdaptiveCurriculum:
         self.resolution_angle = resolution[1]
         self.success_threshold = success_threshold
         self.decay_rate = decay_rate
+        self.success_counter_vel = 0
+        self.success_counter_angle_top = 0
+        self.success_counter_angle_bottom = 0
 
         self._grid = self._create_grid(vel_range, angle_range, self.resolution_vel, self.resolution_angle)
 
@@ -112,12 +115,48 @@ class GridAdaptiveCurriculum:
 
         return adjacent_inds
     
-    def _adapt_weights(self, index):
-        ### weights are initialized with 1 + instead of adding 0.2, the weights are set to 1 for the node itself and for all adjacent nodes
-        self._grid[index, 2] = 1
-        adjacents = self._get_adjacents(index)
-        adjacent_inds = np.array(adjacents.nonzero()[0])
-        self._grid[adjacent_inds, 2] = 1
+    # def _adapt_weights(self, index):
+    #     ### weights are initialized with 1 + instead of adding 0.2, the weights are set to 1 for the node itself and for all adjacent nodes
+    #     self._grid[index, 2] = 1
+    #     adjacents = self._get_adjacents(index)
+    #     adjacent_inds = np.array(adjacents.nonzero()[0])
+    #     self._grid[adjacent_inds, 2] = 1
+
+    def _adapt_weights(self):
+        """
+        Adjusts weights globally:
+        - Points near corners get high weights.
+        - Interior points (far from corners) lose weight.
+        - High-velocity points get additional priority without exceeding 1.
+        """
+        corners = [
+            (np.max(self.grid[:, 0]), np.max(self.grid[:, 1])),  # Top-right corner
+            (np.max(self.grid[:, 0]), np.min(self.grid[:, 1]))   # Bottom-right corner
+        ]
+
+        # Compute distance of each grid point to the nearest corner
+        distances = np.array([
+            min(np.linalg.norm(self.grid[i] - np.array(corner)) for corner in corners)
+            for i in range(len(self.grid))
+        ])
+
+        # Normalize distances (0 = closest to corner, 1 = farthest from any corner)
+        max_distance = np.max(distances)
+        distances = distances / (max_distance + 1e-6)  # Avoid division by zero
+
+        # Extract velocity values from the grid
+        velocities = self.grid[:, 0]
+        max_vel = np.max(velocities)
+
+        # Scale velocity importance: Normalize velocity values between 0 and 1
+        velocity_weights = velocities / (max_vel + 1e-6)  # Higher velocity → higher weight
+
+        # Blend corner proximity and velocity importance with controlled scaling
+        alpha = 0.6  # Adjusts the influence of corner proximity (higher = more corner focus)
+        beta = 1 - alpha  # Ensures sum remains <= 1
+
+        self._grid[:, 2] = alpha * (1 - distances) + beta * velocity_weights  # No clipping needed
+
 
     def _adapt_weights_normal(self, index):
         # weights are initialized with 0 and weight is added by +0.4 for the node itself and +0.2 for all adjacent nodes
@@ -150,33 +189,61 @@ class GridAdaptiveCurriculum:
             return True
         return False
 
-    def update(self, training_progress, velocity, angle, reward, success_counter_vel =True, success_counter_angle_top=True, success_counter_angle_bottom=True):
+    def update(self, training_progress, velocity, angle, reward):
+        # print("vel: ", velocity, "angle: ", angle)
         if reward >= self.success_threshold:
             _, node_idx = self._get_node(velocity, angle)
             if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25:
-                if success_counter_vel > 100* (1-training_progress):
+                if self.success_counter_vel > 50:
                     self._extend_grid_velocity()
-                    success_counter_vel = 0
+                    self.success_counter_vel = 0
                     print("Extended grid along velocity axis")
                 else:
-                    success_counter_vel += 1
-            if self._is_border_angle_top(node_idx) and self.grid[node_idx, 1] < np.pi/8: # <np.pi
-                if success_counter_angle_top > 100* (1-training_progress):
+                    self.success_counter_vel += 1
+                    # print("no extension, but point at max velocity")
+            # else:
+            #     print("Point not at max velocity")
+            if self._is_border_angle_top(node_idx) and self.grid[node_idx, 1] < np.pi:
+                if self.success_counter_angle_top > 50:
                     self._extend_grid_angle_top()
-                    success_counter_angle_top = 0
+                    self.success_counter_angle_top = 0
                     print("Extended grid along angle top angle axis")
                 else:
-                    success_counter_angle_top += 1
-            if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi/8: # >-np.pi
-                if success_counter_angle_bottom > 100* (1-training_progress):
+                    self.success_counter_angle_top += 1
+                    # print("no extension, but point at max angle")
+            # else:    
+            #     print("Point not at max angle")
+            if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi:
+                if self.success_counter_angle_bottom > 50:
                     self._extend_grid_angle_bottom()
-                    success_counter_angle_bottom = 0
+                    self.success_counter_angle_bottom = 0
                     print("Extended grid along angle bottom axis")
                 else:
-                    success_counter_angle_bottom += 1
-            _, node_idx = self._get_node(velocity, angle)
-            self._adapt_weights(node_idx)
-        return success_counter_vel, success_counter_angle_top, success_counter_angle_bottom
+                    self.success_counter_angle_bottom += 1
+                    # print("no extension, but point at min angle")
+            # else:
+            #     print("Point not at min angle")
+            # _, node_idx = self._get_node(velocity, angle)
+            self._adapt_weights()
+            # print("Adapted weights")
+
+            # if self._is_border_vel(node_idx):
+            #     self.success_counter_vel += 1
+            # if self._is_border_angle_top(node_idx):
+            #     self.success_counter_angle_top += 1
+            # if self._is_border_angle_bottom(node_idx):
+            #     self.success_counter_angle_bottom += 1
+            # if self.success_counter_vel == 150:
+            #     print("Success counter vel: ", self.success_counter_vel)
+            #     print("Success counter angle top: ", self.success_counter_angle_top)
+            #     print("Success counter angle bottom: ", self.success_counter_angle_bottom)
+            #     self.success_counter_vel = 0
+            #     self.success_counter_angle_top = 0
+            #     self.success_counter_angle_bottom = 0
+
+             
+
+        return self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom
     
     def _sample_node(self):
         """default to uniform"""
