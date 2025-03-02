@@ -189,20 +189,64 @@ class GridAdaptiveCurriculum:
             return True
         return False
 
-    def update(self, training_progress, velocity, angle, reward):
-        # print("vel: ", velocity, "angle: ", angle)
+    # def update(self, training_progress, velocity, angle, reward):
+    #     # print("vel: ", velocity, "angle: ", angle)
+    #     if reward >= self.success_threshold:
+    #         _, node_idx = self._get_node(velocity, angle)
+    #         if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25:
+    #             if self.success_counter_vel > 50:
+    #                 self._extend_grid_velocity()
+    #                 self.success_counter_vel = 0
+    #                 print("Extended grid along velocity axis")
+    #             else:
+    #                 self.success_counter_vel += 1
+    #                 # print("no extension, but point at max velocity")
+    #         # else:
+    #         #     print("Point not at max velocity")
+    #         if self._is_border_angle_top(node_idx) and self.grid[node_idx, 1] < np.pi:
+    #             if self.success_counter_angle_top > 50:
+    #                 self._extend_grid_angle_top()
+    #                 self.success_counter_angle_top = 0
+    #                 print("Extended grid along angle top angle axis")
+    #             else:
+    #                 self.success_counter_angle_top += 1
+    #                 # print("no extension, but point at max angle")
+    #         # else:    
+    #         #     print("Point not at max angle")
+    #         if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi:
+    #             if self.success_counter_angle_bottom > 50:
+    #                 self._extend_grid_angle_bottom()
+    #                 self.success_counter_angle_bottom = 0
+    #                 print("Extended grid along angle bottom axis")
+    #             else:
+    #                 self.success_counter_angle_bottom += 1
+    #                 # print("no extension, but point at min angle")
+    #         # else:
+    #         #     print("Point not at min angle")
+    #         # _, node_idx = self._get_node(velocity, angle)
+    #         self._adapt_weights()
+    #         # print("Adapted weights")
+
+    #         # if self._is_border_vel(node_idx):
+    #         #     self.success_counter_vel += 1
+    #         # if self._is_border_angle_top(node_idx):
+    #         #     self.success_counter_angle_top += 1
+    #         # if self._is_border_angle_bottom(node_idx):
+    #         #     self.success_counter_angle_bottom += 1
+    #         # if self.success_counter_vel == 150:
+    #         #     print("Success counter vel: ", self.success_counter_vel)
+    #         #     print("Success counter angle top: ", self.success_counter_angle_top)
+    #         #     print("Success counter angle bottom: ", self.success_counter_angle_bottom)
+    #         #     self.success_counter_vel = 0
+    #         #     self.success_counter_angle_top = 0
+    #         #     self.success_counter_angle_bottom = 0
+
+             
+
+    
+    def update_angle(self, training_progress, velocity, angle, reward):
         if reward >= self.success_threshold:
             _, node_idx = self._get_node(velocity, angle)
-            if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25:
-                if self.success_counter_vel > 50:
-                    self._extend_grid_velocity()
-                    self.success_counter_vel = 0
-                    print("Extended grid along velocity axis")
-                else:
-                    self.success_counter_vel += 1
-                    # print("no extension, but point at max velocity")
-            # else:
-            #     print("Point not at max velocity")
             if self._is_border_angle_top(node_idx) and self.grid[node_idx, 1] < np.pi:
                 if self.success_counter_angle_top > 50:
                     self._extend_grid_angle_top()
@@ -210,9 +254,6 @@ class GridAdaptiveCurriculum:
                     print("Extended grid along angle top angle axis")
                 else:
                     self.success_counter_angle_top += 1
-                    # print("no extension, but point at max angle")
-            # else:    
-            #     print("Point not at max angle")
             if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi:
                 if self.success_counter_angle_bottom > 50:
                     self._extend_grid_angle_bottom()
@@ -220,31 +261,20 @@ class GridAdaptiveCurriculum:
                     print("Extended grid along angle bottom axis")
                 else:
                     self.success_counter_angle_bottom += 1
-                    # print("no extension, but point at min angle")
-            # else:
-            #     print("Point not at min angle")
-            # _, node_idx = self._get_node(velocity, angle)
             self._adapt_weights()
-            # print("Adapted weights")
 
-            # if self._is_border_vel(node_idx):
-            #     self.success_counter_vel += 1
-            # if self._is_border_angle_top(node_idx):
-            #     self.success_counter_angle_top += 1
-            # if self._is_border_angle_bottom(node_idx):
-            #     self.success_counter_angle_bottom += 1
-            # if self.success_counter_vel == 150:
-            #     print("Success counter vel: ", self.success_counter_vel)
-            #     print("Success counter angle top: ", self.success_counter_angle_top)
-            #     print("Success counter angle bottom: ", self.success_counter_angle_bottom)
-            #     self.success_counter_vel = 0
-            #     self.success_counter_angle_top = 0
-            #     self.success_counter_angle_bottom = 0
-
-             
-
-        return self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom
     
+    def update_velocity(self, training_progress, velocity_diff, target_velocity, angle, reward):
+        _, node_idx = self._get_node(target_velocity, angle)
+        if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25:
+            if velocity_diff < 0.1:
+                if self.success_counter_vel > 50:
+                    self._extend_grid_velocity()
+                    self.success_counter_vel = 0
+                    print("Extended grid along velocity axis")
+                else:
+                    self.success_counter_vel += 1
+
     def _sample_node(self):
         """default to uniform"""
         if self.weights.sum() == 0:                                                              
