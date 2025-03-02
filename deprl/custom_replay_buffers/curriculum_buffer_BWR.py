@@ -30,13 +30,11 @@ class CurriculumBufferBWR(Buffer):
         self.last_task = 1
 
         # initialize the grid adaptive curriculum
+        self.resolution = (0.1, np.pi/8)
         self.gridAdaptiveCurric = GridAdaptiveCurriculum(
-            vel_range=(0.0, 0.0), angle_range=(0.0, 0.0), resolution=(0.1, np.pi/8), success_threshold=5000, decay_rate=0.5
+            vel_range=(0.0, 0.0), angle_range=(0,0), resolution=self.resolution, success_threshold=2000, decay_rate=0.5
         )
         self.task = "standing"
-        self.success_counter_vel = 0
-        self.success_counter_angle_top = 0
-        self.success_counter_angle_bottom = 0
 
         # get the mode for switching the environment and the targets (angle, velocity, standing)
         self.mode_env = kwargs.pop("mode_env", 0)
@@ -109,7 +107,7 @@ class CurriculumBufferBWR(Buffer):
             )
 
         env_0_threshold = [0.7,0.35] #[0.35, 0.2]
-        env_1_threshold = 0.4 # for 2.5e7 steps total until 1e7 in 4-year-old then adult 
+        env_1_threshold = 0.1 # for 2.5e7 steps total until 1e7 in 4-year-old then adult 
         #env_2_threshold = 1000
         env_2_threshold = [1000, 3, -2]
         env_3_threshold = 1500
@@ -327,50 +325,75 @@ class CurriculumBufferBWR(Buffer):
                 # Tolerance for "closeness"
                 tolerance = 1e-2
 
-                #Filter episodes
-                filtered_episodes_vel = {}
-                filtered_episodes_max_angle = {}
-                filtered_episodes_min_angle = {}
+                # #Filter episodes (version before meeting on 12.02.2024)
+                # filtered_episodes_vel = {}
+                # filtered_episodes_max_angle = {}
+                # filtered_episodes_min_angle = {}
 
+                # for global_worker_id, data in episode_data.items():
+                #     for episode, tmp_data in data.items():
+                #         if abs(tmp_data['velocity'][0][1] - max_velocity) <= tolerance:
+                #             if global_worker_id not in filtered_episodes_vel:
+                #                 filtered_episodes_vel[global_worker_id] = {}
+                #             filtered_episodes_vel[global_worker_id][episode] = tmp_data
+                #         elif abs(tmp_data['angle'][0][1] - max_angle) <= tolerance:
+                #             if global_worker_id not in filtered_episodes_max_angle:
+                #                 filtered_episodes_max_angle[global_worker_id] = {}
+                #             filtered_episodes_max_angle[global_worker_id][episode] = tmp_data
+                #         elif abs(tmp_data['angle'][0][1] - min_angle) <= tolerance:
+                #             if global_worker_id not in filtered_episodes_min_angle:
+                #                 filtered_episodes_min_angle[global_worker_id] = {}
+                #             filtered_episodes_min_angle[global_worker_id][episode] = tmp_data      
+
+                # # Update the weights at each boundary several times, but only extend one time at each boundary
+                # for i in range(3):
+                #     if i == 0:
+                #         filtered_episodes = filtered_episodes_vel
+                #         print(i, "filtered_episodes_vel len", len(filtered_episodes))
+                #     elif i == 1:
+                #         filtered_episodes = filtered_episodes_max_angle
+                #         print(i, "filtered_episodes_max_angle len", len(filtered_episodes))
+                #     elif i == 2:
+                #         filtered_episodes = filtered_episodes_min_angle
+                #         print(i, "filtered_episodes_min_angle len", len(filtered_episodes))
+                        
+                #     if filtered_episodes != {}:
+                #         print(i, self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom, steps_per)
+                #         for worker_id, worker_data in filtered_episodes.items():
+                #             for episode, tmp_data in worker_data.items():
+                #                 tmp_data = filtered_episodes[worker_id][episode]
+                #                 target_vel = tmp_data['velocity'][0][1]
+                #                 target_angle = tmp_data['angle'][0][1]
+                #                 reward = tmp_data['reward']
+                #                 self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom = self.gridAdaptiveCurric.update(
+                #                     steps_per, target_vel, target_angle, reward, self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom
+                #                     )
+                #         print(i, self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom)
+            
+                #Filter episodes (version of meeting on 12.02.2024)
+                #put all episodes to the filtered dict, are on the edges and close to the corners
+                filtered_episodes = {}
+                tolerance_vel = 1.5 * self.resolution[0]
+                tolerance_angle = 1.5 * self.resolution[1]
                 for global_worker_id, data in episode_data.items():
                     for episode, tmp_data in data.items():
-                        if abs(tmp_data['velocity'][0][1] - max_velocity) <= tolerance:
-                            if global_worker_id not in filtered_episodes_vel:
-                                filtered_episodes_vel[global_worker_id] = {}
-                            filtered_episodes_vel[global_worker_id][episode] = tmp_data
-                        elif abs(tmp_data['angle'][0][1] - max_angle) <= tolerance:
-                            if global_worker_id not in filtered_episodes_max_angle:
-                                filtered_episodes_max_angle[global_worker_id] = {}
-                            filtered_episodes_max_angle[global_worker_id][episode] = tmp_data
-                        elif abs(tmp_data['angle'][0][1] - min_angle) <= tolerance:
-                            if global_worker_id not in filtered_episodes_min_angle:
-                                filtered_episodes_min_angle[global_worker_id] = {}
-                            filtered_episodes_min_angle[global_worker_id][episode] = tmp_data      
-
-                # Update the weights at each boundary several times, but only extend one time at each boundary
-                for i in range(3):
-                    if i == 0:
-                        filtered_episodes = filtered_episodes_vel
-                        print(i, "filtered_episodes_vel len", len(filtered_episodes))
-                    elif i == 1:
-                        filtered_episodes = filtered_episodes_max_angle
-                        print(i, "filtered_episodes_max_angle len", len(filtered_episodes))
-                    elif i == 2:
-                        filtered_episodes = filtered_episodes_min_angle
-                        print(i, "filtered_episodes_min_angle len", len(filtered_episodes))
-                        
-                    if filtered_episodes != {}:
-                        print(i, self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom, steps_per)
-                        for worker_id, worker_data in filtered_episodes.items():
-                            for episode, tmp_data in worker_data.items():
-                                tmp_data = filtered_episodes[worker_id][episode]
-                                target_vel = tmp_data['velocity'][0][1]
-                                target_angle = tmp_data['angle'][0][1]
+                        target_vel = tmp_data['velocity'][0][1]
+                        target_angle = tmp_data['angle'][0][1]
+                        if ((abs(target_angle - max_angle) < tolerance_angle or abs(target_angle - min_angle) < tolerance_angle) and abs(target_vel - max_velocity) < tolerance_vel):
+                            if abs(target_vel - max_velocity) < tolerance or abs(target_angle - max_angle) < tolerance or abs(target_angle - min_angle) < tolerance:
+                                if global_worker_id not in filtered_episodes:
+                                    filtered_episodes[global_worker_id] = {}
+                                # print("Target velocity: ", target_vel, "Target angle: ", target_angle, "worker: ", global_worker_id, "episode: ", episode, "max velocity: ", max_velocity, "max angle: ", max_angle)
+                                filtered_episodes[global_worker_id][episode] = tmp_data
                                 reward = tmp_data['reward']
-                                self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom = self.gridAdaptiveCurric.update(
-                                    steps_per, target_vel, target_angle, reward, self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom
+                                self.gridAdaptiveCurric.update(
+                                    steps_per, target_vel, target_angle, reward
                                     )
-                        print(i, self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom)
+
+            
+            
+            
+            
             elif self.task == "do_not_update":
                 print("task is do_not_update")
             
