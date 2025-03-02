@@ -386,9 +386,19 @@ class CurriculumBufferBWR(Buffer):
                                 # print("Target velocity: ", target_vel, "Target angle: ", target_angle, "worker: ", global_worker_id, "episode: ", episode, "max velocity: ", max_velocity, "max angle: ", max_angle)
                                 filtered_episodes[global_worker_id][episode] = tmp_data
                                 reward = tmp_data['reward']
-                                self.gridAdaptiveCurric.update(
-                                    steps_per, target_vel, target_angle, reward
-                                    )
+                                # self.gridAdaptiveCurric.update(
+                                #     steps_per, target_vel, target_angle, reward
+                                #     )
+                                self.gridAdaptiveCurric.update_angle(steps_per,target_vel,target_angle,reward)
+                        if abs(target_vel - max_velocity) < tolerance:
+                            reward = tmp_data['reward']
+                            velocities = tmp_data['velocity']
+                            vel_percent_diffs = [
+                                abs(velocity[0] - velocity[1])/reward_scale
+                                for velocity in velocities
+                            ]
+                            vel_percent_diff = np.mean(vel_percent_diffs)
+                            self.gridAdaptiveCurric.update_velocity(steps_per,vel_percent_diff,target_vel,target_angle,reward)
 
             
             
