@@ -4,9 +4,9 @@ import deprl
 
 
 # create the sconegym env
-env = gym.make("sconerun_BWR_twoRew_org_h0918addAbd-v1")  #"sconerunInputVel_torso_h0918addAbd_gaps-v0") #sconeruntest_h0918addAbd-v0") 
+env = gym.make('sconerun_auto_h0918addAbd-v1') #gym.make("sconerun_BWR_twoRew_org_h0918addAbd-v1")  #"sconerunInputVel_torso_h0918addAbd_gaps-v0") #sconeruntest_h0918addAbd-v0") 
 
-policy = deprl.load("/media/calc_2/scone_results/live/denis/curr_BWAR_5tasks_oneRew_org_LastTask04_envTrans06/241018.232030.H0918v2j_abbAdd/", env, 1.5e7)
+policy = deprl.load("/media/calc_2/scone_results/live/Fvalentin/Curric_modeTarget3-0-58/250304.122712.H0918v2j_abbAdd/", env)#, 1.5e7)
 
 for episode in range(10):
     # # store the results of every 10th episode
