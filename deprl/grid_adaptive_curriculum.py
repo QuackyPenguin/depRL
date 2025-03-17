@@ -242,56 +242,9 @@ class GridAdaptiveCurriculum:
             #     self.success_counter_angle_bottom = 0
 
              
-    def update_fixed(self,steps_per):
-        velocities = self.grid[:, 0]
-        max_vel = np.max(velocities)
-        angles = self.grid[:, 1]
-        max_angle = np.max(angles)
-        min_angle = np.min(angles)
-        if np.round(steps_per*10 % 1, 10) == 0:
-            if max_vel < 1.25:
-                while max_vel > 0 and max_vel < 0.3:
-                    self._extend_grid_velocity()
-                    print("Extended grid along velocity axis")
-            if max_angle < np.pi:
-                self._extend_grid_angle_top()
-                print("Extended grid along angle top axis")
-            if min_angle > -np.pi:
-                self._extend_grid_angle_bottom()
-                print("Extended grid along angle bottom axis")
-    
-    def update_angle(self, training_progress, velocity, angle, reward):
-        if reward >= self.success_threshold:
-            _, node_idx = self._get_node(velocity, angle)
-            if self._is_border_angle_top(node_idx) and self.grid[node_idx, 1] < np.pi:
-                if self.success_counter_angle_top > 50:
-                    self._extend_grid_angle_top()
-                    self.success_counter_angle_top = 0
-                    print("Extended grid along angle top angle axis")
-                else:
-                    self.success_counter_angle_top += 1
-            if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi:
-                if self.success_counter_angle_bottom > 50:
-                    self._extend_grid_angle_bottom()
-                    self.success_counter_angle_bottom = 0
-                    print("Extended grid along angle bottom axis")
-                else:
-                    self.success_counter_angle_bottom += 1
-            self._adapt_weights()
 
+        return self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom
     
-    def update_velocity(self, training_progress, velocity_diff, target_velocity, angle, reward):
-        _, node_idx = self._get_node(target_velocity, angle)
-        if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25:
-            if velocity_diff < 0.2:
-                if self.success_counter_vel > 50:
-                    self._extend_grid_velocity()
-                    self.success_counter_vel = 0
-                    print("Extended grid along velocity axis")
-                else:
-                    self.success_counter_vel += 1
-            self._adapt_weights()
-
     def _sample_node(self):
         """default to uniform"""
         if self.weights.sum() == 0:                                                              

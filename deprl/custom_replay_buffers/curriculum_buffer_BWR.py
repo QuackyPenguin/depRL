@@ -389,24 +389,13 @@ class CurriculumBufferBWR(Buffer):
                                 self.gridAdaptiveCurric.update(
                                     steps_per, target_vel, target_angle, reward
                                     )
-                        #         self.gridAdaptiveCurric.update_angle(steps_per,target_vel,target_angle,reward)
-                        # if abs(target_vel - max_velocity) < tolerance:
-                        #     reward = tmp_data['reward']
-                        #     velocities = tmp_data['velocity']
-                        #     vel_percent_diffs = [
-                        #         abs(velocity[0] - velocity[1])/reward_scale
-                        #         for velocity in velocities
-                        #     ]
-                        #     vel_percent_diff = np.mean(vel_percent_diffs)
-                        #     print("target_vel", target_vel, "mean vel", np.mean(velocities[:][0]), "vel_percent_diff", vel_percent_diff)
-                        #     self.gridAdaptiveCurric.update_velocity(steps_per,vel_percent_diff,target_vel,target_angle,reward)
+
+            
+            
+            
             
             elif self.task == "do_not_update":
                 print("task is do_not_update")
-    
-        elif self.mode_target == 4:
-            # extend the grid based on a fixed number of steps
-            self.gridAdaptiveCurric.update_fixed(steps_per)
             
 
         return (
