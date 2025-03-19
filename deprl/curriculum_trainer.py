@@ -208,7 +208,7 @@ class Trainer:
                 # Evaluate the agent on the test environment.
                 # for i in range(num_workers):
                 #     if i == 0:
-                #         gridAdaptiveCurric.plot(label = f"weight[0] = {gridAdaptiveCurric.weights[0]}", title = f"# epochs: {epochs}", save_path = f"/home/nadinebadie/denis/valentin_results/grid-adaptive-curric_target/try59/grid-plots-worker0/{epochs}.png")
+                #         gridAdaptiveCurric.plot(label = f"weight[0] = {gridAdaptiveCurric.weights[0]}", title = f"# epochs: {epochs}", save_path = f"/home/nadinebadie/denis/valentin_results/grid-adaptive-curric_target/try63/grid-plots-worker0/{epochs}.png")
                 if self.test_environment is not None:
                     if (
                         "control"

@@ -9,7 +9,7 @@ tonic:
   environments: "deprl.environments.Gym('sconerun_auto_h0918addAbd_onto4y-v1', scaled_actions=False);
    deprl.environments.Gym('sconerun_auto_h0918addAbd-v1', scaled_actions=False)"
   full_save: 1
-  name: "Fvalentin/Curric_modeTarget3-0-62" #"Fvalentin/test_curr_auto_initVel0Ang0_velThresh05_angThresh03_noStandProb_envChangeEnvThes07and035VelThes07_allVelAngPercent"
+  name: "Curric_modeTarget3-0-63" #"Fvalentin/test_curr_auto_initVel0Ang0_velThresh05_angThresh03_noStandProb_envChangeEnvThes07and035VelThes07_allVelAngPercent"
   resume: false
   seed: 0
   parallel: 20 #24

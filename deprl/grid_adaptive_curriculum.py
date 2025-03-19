@@ -12,6 +12,10 @@ class GridAdaptiveCurriculum:
         self.success_counter_vel = 0
         self.success_counter_angle_top = 0
         self.success_counter_angle_bottom = 0
+        self.num_of_updates_vel = int(1.2 / self.resolution_vel)
+        self.num_of_updates_angle = int(np.pi / self.resolution_angle+1)
+        self.curr_num_of_updates_vel = 0
+        self.curr_num_of_updates_angle = 0
 
         self._grid = self._create_grid(vel_range, angle_range, self.resolution_vel, self.resolution_angle)
 
@@ -44,9 +48,9 @@ class GridAdaptiveCurriculum:
 
         return grid
     
-    def _extend_grid_velocity(self):
+    def _extend_grid_velocity(self, skip=0):
         """
-        Erweitert ein bestehendes Grid entlang der Velocity-Achse um eine bestimmte Anzahl von Schritten.
+        Erweitert ein bestehendes Grid entlang der Velocity-Achse um eine höhere Geschwindigkeit. Lässt auch bestimmte Abstände zwischen den Geschwindigkeiten zu.
 
         Returns:
             numpy.ndarray: Das erweiterte Grid in Row-Major Order mit aktualisierten Indizes.
@@ -56,7 +60,7 @@ class GridAdaptiveCurriculum:
         angle_values = np.unique(self.grid[:, 1])
         
         # Erstellen der neuen Punkte für die Erweiterung
-        max_velocity += self.resolution_vel
+        max_velocity += self.resolution_vel * (skip + 1)
         new_points = np.array([[max_velocity, a, 0] for a in angle_values])
 
         # Erweitern des Grids um die neuen Punkte
@@ -245,6 +249,32 @@ class GridAdaptiveCurriculum:
 
         return self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom
     
+    def update_fixed(self,steps_per):
+        velocities = self.grid[:, 0]
+        max_vel = np.max(velocities)
+        angles = self.grid[:, 1]
+        max_angle = np.max(angles)
+        min_angle = np.min(angles)
+        if steps_per >= (self.curr_num_of_updates_angle+1)/self.num_of_updates_angle:
+            self.curr_num_of_updates_angle += 1
+            if max_angle < np.pi:
+                self._extend_grid_angle_top()
+                print("Extended grid along angle top axis")
+            if min_angle > -np.pi:
+                self._extend_grid_angle_bottom()
+                print("Extended grid along angle bottom axis")
+        if steps_per >= (self.curr_num_of_updates_vel+1)/self.num_of_updates_vel:
+            self.curr_num_of_updates_vel += 1
+            if max_vel < 1.25:
+                if max_vel < 1e-3 or max_vel - 0.1 < 1e-3:
+                    self._extend_grid_velocity(skip= 2 - max_vel * 10)
+                    print("Extended grid along velocity axis, skipped to max_vel 0.3")
+                else:
+                    self._extend_grid_velocity()
+                    print("Extended grid along velocity axis")
+        self._adapt_weights()
+
+                
     def _sample_node(self):
         """default to uniform"""
         if self.weights.sum() == 0:                                                              

@@ -44,7 +44,7 @@ class CurriculumBufferBWR(Buffer):
             raise Exception(
                 f"Mode {self.mode_env} of the environment is not implemented."
             )
-        if self.mode_target not in [0, 1, 2, 3]:
+        if self.mode_target not in [0, 1, 2, 3, 4]:
             raise Exception(
                 f"Mode {self.mode_target} of the targets is not implemented."
             )
@@ -397,6 +397,10 @@ class CurriculumBufferBWR(Buffer):
             elif self.task == "do_not_update":
                 print("task is do_not_update")
             
+
+        elif self.mode_target == 4:
+             # extend the grid based on a fixed number of steps
+            self.gridAdaptiveCurric.update_fixed(steps_per)
 
         return (
             self.last_env_index,
