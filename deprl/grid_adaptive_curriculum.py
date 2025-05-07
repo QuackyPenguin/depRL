@@ -12,10 +12,17 @@ class GridAdaptiveCurriculum:
         self.success_counter_vel = 0
         self.success_counter_angle_top = 0
         self.success_counter_angle_bottom = 0
-        self.num_of_updates_vel = int(1.2 / self.resolution_vel)
+        self.num_of_updates_vel = int((1.2-0.7) / self.resolution_vel)#try222: int((1.2-0.7) / self.resolution_vel) #try212: int((0.8-0.3) / self.resolution_vel)#try63,191: int(1.2 / self.resolution_vel)
         self.num_of_updates_angle = int(np.pi / self.resolution_angle+1)
         self.curr_num_of_updates_vel = 0
         self.curr_num_of_updates_angle = 0
+
+        self.cell_history = {}
+        # Rolling window size
+        self.MAX_HISTORY = 50
+
+        self.counts = {}
+        self.tmp_counts = {}
 
         self._grid = self._create_grid(vel_range, angle_range, self.resolution_vel, self.resolution_angle)
 
@@ -46,6 +53,11 @@ class GridAdaptiveCurriculum:
         angle_values = np.arange(angle_range[0], angle_range[1] + resolution_angle/10, resolution_angle)
         grid = np.array([[vel, angle, 1] for vel in vel_values for angle in angle_values])                  ### weights are initialized with 0 (for adding +0.2) or 1)
 
+        for vel in vel_values:
+            for angle in angle_values:
+                self.counts[(vel, angle)] = 0
+                self.tmp_counts[(vel, angle)] = 0
+
         return grid
     
     def _extend_grid_velocity(self, skip=0):
@@ -65,6 +77,10 @@ class GridAdaptiveCurriculum:
 
         # Erweitern des Grids um die neuen Punkte
         self._grid = np.row_stack((self._grid[:, :], new_points))
+
+        for angle in angle_values:
+            self.counts[(max_velocity, angle)] = 0
+            self.tmp_counts[(max_velocity, angle)] = 0
 
     def _extend_grid_angle_top(self):
         """
@@ -87,6 +103,10 @@ class GridAdaptiveCurriculum:
         # Erweitern des Grids um die neuen Punkte
         self._grid = np.insert(self._grid, new_point_indices, new_points, axis=0)  
 
+        for velocity in velocity_values:
+            self.counts[(velocity, max_angle)] = 0
+            self.tmp_counts[(velocity, max_angle)] = 0
+
 
     def _extend_grid_angle_bottom(self):
         """
@@ -108,6 +128,10 @@ class GridAdaptiveCurriculum:
 
         # Erweitern des Grids um die neuen Punkte
         self._grid = np.insert(self._grid, new_point_indices, new_points, axis=0)
+
+        for velocity in velocity_values:
+            self.counts[(velocity, min_angle)] = 0
+            self.tmp_counts[(velocity, min_angle)] = 0
 
     
     def _get_adjacents(self, index):
@@ -168,6 +192,9 @@ class GridAdaptiveCurriculum:
         adjacents = self._get_adjacents(index)
         adjacent_inds = np.array(adjacents.nonzero()[0])
         self._grid[adjacent_inds, 2] = np.clip(self._grid[adjacent_inds, 2] + 0.2, 0, 1)
+    
+    def _adapt_weights_03_04(self):
+        self._grid[:,2] = 1
 
     def _get_node(self, velocity, angle):
         # Find the closest grid point to the given velocity and angle
@@ -205,8 +232,8 @@ class GridAdaptiveCurriculum:
                 else:
                     self.success_counter_vel += 1
                     # print("no extension, but point at max velocity")
-            # else:
-            #     print("Point not at max velocity")
+            else:
+                print("Point not at max velocity")
             if self._is_border_angle_top(node_idx) and self.grid[node_idx, 1] < np.pi:
                 if self.success_counter_angle_top > 50:
                     self._extend_grid_angle_top()
@@ -227,7 +254,7 @@ class GridAdaptiveCurriculum:
                     # print("no extension, but point at min angle")
             # else:
             #     print("Point not at min angle")
-            _, node_idx = self._get_node(velocity, angle)
+            # _, node_idx = self._get_node(velocity, angle)
             self._adapt_weights()
             # print("Adapted weights")
 
@@ -249,20 +276,108 @@ class GridAdaptiveCurriculum:
 
         return self.success_counter_vel, self.success_counter_angle_top, self.success_counter_angle_bottom
     
+    # def update_31_03(self):
+    #     while np.max(self.grid[:, 0]) < 1.15:
+    #         self._extend_grid_velocity()
+    #         print("Extended grid along velocity axis")
+    #     self.weights[:] = 1
+    #     self.weights
+
+    def update_03_04_vel_diff(self,target_velocity, vel_diff):
+        TOL = 3/10* target_velocity if target_velocity != 0 else 0.01
+        if vel_diff <= TOL:
+            _, node_idx = self._get_node(target_velocity, 0)
+            if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25:
+                if self.success_counter_vel > 50:
+                    self._extend_grid_velocity()
+                    while np.max(self.grid[:,0]) < 0.3:
+                        self._extend_grid_velocity()
+                    self.success_counter_vel = 0
+                    print("Extended grid along velocity axis")
+                else:
+                    self.success_counter_vel += 1
+        self._adapt_weights_03_04()
+
+    def update_03_04_fixed_weights(self,training_progress, velocity, angle, reward):
+        # 1. Identify the cell
+        # _ , node_idx = self._get_node(velocity, angle)
+
+        # # 2. If this cell hasn't been seen yet, initialize its history
+        # if node_idx not in self.cell_history:
+        #     self.cell_history[node_idx] = {
+        #         'rewards': [],
+        #     }
+
+        # # 3. Add this episode's reward to the rolling history
+        # self.cell_history[node_idx]['rewards'].append(reward)
+
+        # # Trim the oldest if we exceed MAX_HISTORY
+        # if len(self.cell_history[node_idx]['rewards']) > self.MAX_HISTORY:
+        #     self.cell_history[node_idx]['rewards'].pop(0)
+
+        # # 4. Compute average reward in this cell
+        # total_reward = sum(self.cell_history[node_idx]['rewards'])
+        # avg_reward = total_reward / len(self.cell_history[node_idx]['rewards'])
+
+        if reward >= self.success_threshold:#avg_reward >= self.success_threshold:
+            _, node_idx = self._get_node(velocity, angle)
+            if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25:
+                if self.success_counter_vel > 50: #1 #5 #50:
+                    self._extend_grid_velocity()
+                    self.success_counter_vel = 0
+                    print("Extended grid along velocity axis")
+                else:
+                    self.success_counter_vel += 1
+        self._adapt_weights_03_04()
+  
+    def update_03_04_vel_diff(self,target_velocity, vel_diff):
+        TOL = 3/10* target_velocity if target_velocity != 0 else 0.01
+        if vel_diff <= TOL:
+            _, node_idx = self._get_node(target_velocity, 0)
+            if self._is_border_vel(node_idx) and self.grid[node_idx, 0] < 1.25:
+                if self.success_counter_vel > 50:
+                    self._extend_grid_velocity()
+                    while np.max(self.grid[:,0]) < 0.3:
+                        self._extend_grid_velocity()
+                    self.success_counter_vel = 0
+                    print("Extended grid along velocity axis")
+                else:
+                    self.success_counter_vel += 1
+        self._adapt_weights_03_04()
+
+    def update_08_04_fixed_weights_angle(self, velocity, angle, reward):
+        if reward >= self.success_threshold:
+            _, node_idx = self._get_node(velocity, angle)
+            if self._is_border_angle_top(node_idx) and self.grid[node_idx, 1] < np.pi:
+                if self.success_counter_angle_top > 50:
+                    self._extend_grid_angle_top()
+                    self.success_counter_angle_top = 0
+                    print("Extended grid along angle top angle axis")
+                else:
+                    self.success_counter_angle_top += 1
+            if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi:
+                if self.success_counter_angle_bottom > 50:
+                    self._extend_grid_angle_bottom()
+                    self.success_counter_angle_bottom = 0
+                    print("Extended grid along angle bottom axis")
+                else:
+                    self.success_counter_angle_bottom += 1
+        self._adapt_weights_03_04()
+
     def update_fixed(self,steps_per):
         velocities = self.grid[:, 0]
         max_vel = np.max(velocities)
         angles = self.grid[:, 1]
         max_angle = np.max(angles)
         min_angle = np.min(angles)
-        if steps_per >= (self.curr_num_of_updates_angle+1)/self.num_of_updates_angle:
-            self.curr_num_of_updates_angle += 1
-            if max_angle < np.pi:
-                self._extend_grid_angle_top()
-                print("Extended grid along angle top axis")
-            if min_angle > -np.pi:
-                self._extend_grid_angle_bottom()
-                print("Extended grid along angle bottom axis")
+        # if steps_per >= (self.curr_num_of_updates_angle+1)/self.num_of_updates_angle:
+        #     self.curr_num_of_updates_angle += 1
+        #     if max_angle < np.pi:
+        #         self._extend_grid_angle_top()
+        #         print("Extended grid along angle top axis")
+        #     if min_angle > -np.pi:
+        #         self._extend_grid_angle_bottom()
+        #         print("Extended grid along angle bottom axis")
         if steps_per >= (self.curr_num_of_updates_vel+1)/self.num_of_updates_vel:
             self.curr_num_of_updates_vel += 1
             if max_vel < 1.25:
@@ -272,7 +387,7 @@ class GridAdaptiveCurriculum:
                 else:
                     self._extend_grid_velocity()
                     print("Extended grid along velocity axis")
-        self._adapt_weights()
+        self._adapt_weights_03_04()
 
                 
     def _sample_node(self):
@@ -285,11 +400,12 @@ class GridAdaptiveCurriculum:
 
     def _sample_uniform_from_cell(self, center):
         cell_sizes = np.array([self.resolution_vel, self.resolution_angle])
-        low, high = center + cell_sizes / 2, center - cell_sizes / 2
-        return np.random.uniform(low, high)
+        low, high = center - cell_sizes / 2, center + cell_sizes / 2
+        return np.random.uniform(np.array([np.max([0.,low[0]]),low[1]]), high)
 
     def sample(self):
         center, index = self._sample_node()
+        #try222,204
         # return self._sample_uniform_from_cell(center), index
         return center, index
     
@@ -311,3 +427,65 @@ class GridAdaptiveCurriculum:
         plt.legend(loc='upper right')
         if save_path is not None:
             plt.savefig(save_path)  
+
+    def add_episode_to_counts(self,vel, angle, tmp = False):
+        if tmp:
+            counts = self.tmp_counts
+        else:
+            counts = self.counts
+        vel,angle = self._get_node(vel, angle)[0]
+        key = tuple((vel,angle))
+        counts[key] += 1
+
+    def reset_tmp_counts(self):
+        for key in self.counts.keys():
+            self.tmp_counts[key] = 0
+
+    def plot_counts(self, tmp = False, savepath = None):
+        if tmp:
+            counts = self.tmp_counts
+        else:
+            counts = self.counts
+        # 4) recover centers
+        vel_centers   = np.unique(self.grid[:,0])
+        angle_centers = np.unique(self.grid[:,1])
+        n_vel, n_ang  = len(vel_centers), len(angle_centers)
+
+        # 5) build a 2D array from the dict counts
+        counts_2d = np.zeros((n_ang, n_vel), dtype=int)
+        for i, a in enumerate(np.flip(angle_centers)):
+            for j, v in enumerate(vel_centers):
+                counts_2d[i, j] = counts[(v, a)]
+
+        # 6) labels
+        col_labels = [f"{v:.2f}" for v in vel_centers]
+        row_labels = [f"{a:.2f}" for a in np.flip(angle_centers)]
+
+        # 7) render as a table
+        _, ax = plt.subplots(figsize=(n_vel*1.5 + 2, n_ang*0.4 + 2))
+        ax.axis('off')
+        tbl = ax.table(
+            cellText=counts_2d,
+            rowLabels=row_labels,
+            colLabels=col_labels,
+            cellLoc='center',
+            loc='center'
+        )
+        tbl.auto_set_font_size(False)
+        tbl.set_fontsize(10)
+        tbl.scale(1, 1.5)
+
+        # 8) shade every second data row and highlight zero-angle row
+        zero_row = np.where(angle_centers == 0)[0][0] + 1  # +1 for header offset
+        for row in range(1, n_ang+1):
+            if row % 2 == 0:
+                for col in range(n_vel):
+                    tbl[(row, col)].set_facecolor("#FFFF00")  # yellow
+            if row == zero_row:
+                for col in range(n_vel):
+                    tbl[(row, col)].set_facecolor("#FF0000")  # red
+
+        plt.title("Exact sample counts per grid cell (keyed)", pad=20)
+        plt.tight_layout()
+        if savepath:
+            plt.savefig(savepath)
