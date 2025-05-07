@@ -153,9 +153,10 @@ def play_scone(
     if not no_render:
         environment.store_next_episode()
     if gridAdaptiveCurric:
+        curric = GridAdaptiveCurriculum((lower_vel, higher_vel), (lower_angle, higher_angle),resolution=(0.1,np.pi/8))
         observations = environment.reset(
             stand_prob=stand_prob,
-            gridAdaptiveCurric=GridAdaptiveCurriculum((lower_vel, higher_vel), (lower_angle, higher_angle)),
+            gridAdaptiveCurric=curric,
         )
     else:
         observations = environment.reset(
@@ -214,7 +215,7 @@ def play_scone(
             if gridAdaptiveCurric:
                 observations = environment.reset(
                     stand_prob=stand_prob,
-                    gridAdaptiveCurric=GridAdaptiveCurriculum((lower_vel, higher_vel), (lower_angle, higher_angle)),
+                    gridAdaptiveCurric=GridAdaptiveCurriculum((lower_vel, higher_vel), (lower_angle, higher_angle), resolution=(0.1, np.pi / 8)),
                 )
             else:
                 observations = environment.reset(
@@ -430,8 +431,8 @@ if __name__ == "__main__":
     # The range for choosing the random angle and velocity
     parser.add_argument("--lower_angle", type=float, default=-np.pi)
     parser.add_argument("--higher_angle", type=float, default=np.pi)
-    parser.add_argument("--lower_vel", type=float, default=0.25)
-    parser.add_argument("--higher_vel", type=float, default=1.25)
+    parser.add_argument("--lower_vel", type=float, default=0.3)
+    parser.add_argument("--higher_vel", type=float, default=1.2)
     parser.add_argument("--gridAdaptiveCurric", action="store_true")
     # The probability of getting the stand task (velocity = 0)
     parser.add_argument("--stand_prob", type=float, default=0.0)
