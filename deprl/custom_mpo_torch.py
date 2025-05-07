@@ -24,6 +24,10 @@ class TunedMPO(agents.MPO):
         batch_size=None,
         retnorm=None,
         return_steps=None,
+        epsilon=1e-1,
+        initial_log_temperature=1.0,
+        initial_log_alpha_mean=1.0,
+        initial_log_alpha_std=10.0,
     ):
         def optim_critic(params):
             return torch.optim.Adam(params, lr_critic)
@@ -42,6 +46,10 @@ class TunedMPO(agents.MPO):
             actor_optimizer=optim_actor,
             dual_optimizer=optim_dual,
             gradient_clip=grad_clip_actor,
+            epsilon=epsilon,
+            initial_log_temperature=initial_log_temperature,
+            initial_log_alpha_mean=initial_log_alpha_mean,
+            initial_log_alpha_std=initial_log_alpha_std,
         )
         if hidden_size is None:
             hidden_size = 256
