@@ -1,0 +1,49 @@
+experimentName: mpo_nni_search_3
+trialCommand: python3 -m deprl.curriculum_main --path /home/nadinebadie/denis/depRL/experiments/hyfydy/#curriculum.yaml
+trialCodeDirectory: /home/nadinebadie/denis/depRL
+trialConcurrency: 4
+maxTrialNumber: 100
+maxExperimentDuration: 75h
+
+searchSpace:
+  lr_actor:
+    _type: loguniform
+    _value: [1e-6, 1e-3] #[1e-5, 1e-2]
+  lr_critic:
+    _type: loguniform
+    _value: [1e-6, 1e-3] #[1e-5, 1e-2]
+  lr_dual:
+    _type: loguniform
+    _value: [1e-5, 1e-2] #[1e-4, 1e-1]
+  hidden_size:
+    _type: choice
+    _value: [128, 256, 512, 1024] #[128, 256, 512]
+  batch_size:
+    _type: choice
+    _value: [128, 256, 512] #[64, 128, 256]
+  grad_clip_actor:
+    _type: choice
+    _value: [1, 5] #[0, 1, 5]
+  grad_clip_critic:
+    _type: choice
+    _value: [0, 1] #[0, 1, 5]
+  epsilon:
+    _type: loguniform
+    _value: [1e-4, 2e-1]  
+  initial_log_temperature:
+    _type: uniform
+    _value: [0.1, 5.0]  # Wider temp = more/less entropy
+  initial_log_alpha_mean:
+    _type: uniform
+    _value: [0.1, 5.0]  # More aggressive KL tuning
+  initial_log_alpha_std:
+    _type: uniform
+    _value: [1.0, 25.0]  # More flexibility in std constraint
+
+tuner:
+  name: Random
+  classArgs:
+    optimize_mode: maximize
+
+trainingService:
+  platform: local
