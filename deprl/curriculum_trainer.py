@@ -79,6 +79,7 @@ class Trainer:
         angles = []
         collected_velocities = []
         collected_angles = []
+        rewards_of_last_10_epochs = []
 
         # get the initial curriculum parameters
         environment_turn = self.agent.replay.last_env_index
@@ -293,6 +294,9 @@ class Trainer:
                 collected_velocities = [(global_worker_index, 0, vel) for global_worker_index, episode, vel in collected_velocities if (not info["resets"][global_worker_index] and episode == worker_episodes[global_worker_index]-1)]
                 collected_angles = [(global_worker_index, 0, angle) for global_worker_index, episode, angle in collected_angles if (not info["resets"][global_worker_index] and episode == worker_episodes[global_worker_index]-1)]
                 length_percentages = []
+                rewards_of_last_10_epochs.append(rewards.copy())
+                if len(rewards_of_last_10_epochs) > 10:
+                    rewards_of_last_10_epochs.pop(0)
                 rewards = []
                 critic_qs = []
                 episode_lengths = []
@@ -324,6 +328,11 @@ class Trainer:
 
             if stop_training:
                 self.close_mp_envs()
+                # reward_summary = rewards_of_last_10_epochs
+                # flat_reward_summary = [value for sublist in reward_summary for value in sublist]
+                # import nni
+                # avg_reward = np.mean(flat_reward_summary)
+                # nni.report_final_result(avg_reward)
                 return scores
 
     def close_mp_envs(self):
