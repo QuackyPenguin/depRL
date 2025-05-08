@@ -86,7 +86,6 @@ class Trainer:
         angle_range = self.agent.replay.last_angle_range
         vel_range = self.agent.replay.last_vel_range
         gridAdaptiveCurric = self.agent.replay.gridAdaptiveCurric
-        stand_prob = self.agent.replay.last_stand_prob
         task = self.agent.replay.last_task
 
         while True:
@@ -138,7 +137,7 @@ class Trainer:
 
             # Take a step in the environments.
             observations, muscle_states, info = self.environment.step(
-                actions, angle_range, vel_range, gridAdaptiveCurric, stand_prob, task
+                actions, angle_range, vel_range, gridAdaptiveCurric, task
             )
             observations_list[environment_turn] = observations
             muscle_states_list[environment_turn] = muscle_states
@@ -178,7 +177,6 @@ class Trainer:
                     logger.store("train/angle_range", np.max(gridAdaptiveCurric.grid[:,1]))
                     logger.store("train/neg_angle_range", np.min(gridAdaptiveCurric.grid[:,1]))
                     logger.store("train/vel_range", np.max(gridAdaptiveCurric.grid[:,0]))
-                    logger.store("train/stand_prob", stand_prob)
                     logger.store("train/task", task)
 
                     if i == 0:
@@ -271,7 +269,7 @@ class Trainer:
                 worker_episodes = [len(worker_episode_lengths[i]) for i in range(len(worker_episode_lengths))]
 
                 # update the curriculum, once per epoch
-                environment_turn, angle_range, vel_range, stand_prob, task, gridAdaptiveCurric = (
+                environment_turn, angle_range, vel_range, task, gridAdaptiveCurric = (
                     self.agent.replay._curriculum_step(
                         num_envs=self.number_of_environments,
                         length_percentages=length_percentages,

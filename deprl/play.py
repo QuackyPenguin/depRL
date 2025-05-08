@@ -146,7 +146,6 @@ def play_scone(
     lower_vel,
     higher_vel,
     gridAdaptiveCurric,
-    stand_prob,
 ):
     """Launches an agent in a Gym-based environment."""
     set_scone_save_path(checkpoint_path, environment, name)
@@ -155,14 +154,12 @@ def play_scone(
     if gridAdaptiveCurric:
         curric = GridAdaptiveCurriculum((lower_vel, higher_vel), (lower_angle, higher_angle),resolution=(0.1,np.pi/8))
         observations = environment.reset(
-            stand_prob=stand_prob,
             gridAdaptiveCurric=curric,
         )
     else:
         observations = environment.reset(
             angle_range=(lower_angle, higher_angle),
             vel_range=(lower_vel, higher_vel),
-            stand_prob=stand_prob,
         )
     muscle_states = environment.muscle_states
 
@@ -214,7 +211,6 @@ def play_scone(
                 environment.store_next_episode()
             if gridAdaptiveCurric:
                 observations = environment.reset(
-                    stand_prob=stand_prob,
                     gridAdaptiveCurric=GridAdaptiveCurriculum((lower_vel, higher_vel), (lower_angle, higher_angle), resolution=(0.1, np.pi / 8)),
                 )
             else:
@@ -341,7 +337,6 @@ def play(
     lower_vel,
     higher_vel,
     gridAdaptiveCurric,
-    stand_prob,
 ):
     """Reloads an agent and an environment from a previous experiment."""
 
@@ -409,7 +404,6 @@ def play(
             lower_vel,
             higher_vel,
             gridAdaptiveCurric,
-            stand_prob,
         )
     else:
         play_gym(agent, environment, noisy, num_episodes, no_render)
@@ -435,7 +429,6 @@ if __name__ == "__main__":
     parser.add_argument("--higher_vel", type=float, default=1.2)
     parser.add_argument("--gridAdaptiveCurric", action="store_true")
     # The probability of getting the stand task (velocity = 0)
-    parser.add_argument("--stand_prob", type=float, default=0.0)
     args = vars(parser.parse_args())
     check_args(args)
     play(**args)

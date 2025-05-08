@@ -19,12 +19,11 @@ class CurriculumBufferBWR(Buffer):
         # after switching the environment, the agent cannot switch again for a certain number of steps
         self.no_switch = 0
 
-        # initialize the environment index, angle range, velocity range, and standing probability
+        # initialize the environment index, angle range, velocity range
         self.epochs_above_threshold = 0
         self.last_env_index = 0
         self.last_angle_range = (0, 0)
         self.last_vel_range = (0,0) #(1, 1)
-        self.last_stand_prob = 0
         # 0 - target task, 1 - velocity task, 2 - orientation task
         # initial task is for the 4 year old
         self.last_task = 1
@@ -763,7 +762,6 @@ class CurriculumBufferBWR(Buffer):
             self.last_env_index,
             self.last_angle_range,
             self.last_vel_range,
-            self.last_stand_prob,
             self.last_task,
             self.gridAdaptiveCurric
         )
