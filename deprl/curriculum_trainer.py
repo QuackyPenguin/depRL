@@ -72,7 +72,6 @@ class Trainer:
 
         # keep track of data that can be used to update the curriculum
         length_percentages = []
-        rewards = []
         critic_qs = []
         episode_lengths = []
         collected_velocities = []
@@ -179,7 +178,6 @@ class Trainer:
                     length_percentages.append(
                         lengths[i] / self.environment._max_episode_steps
                     )
-                    rewards.append(scores[i])
                     episode_lengths.append(lengths[i])
                     scores[i] = 0
                     lengths[i] = 0
@@ -260,7 +258,6 @@ class Trainer:
                     self.agent.replay._curriculum_step(
                         num_envs=self.number_of_environments,
                         length_percentages=length_percentages,
-                        rewards=rewards,
                         episode_lengths = episode_lengths,
                         critic_qs = critic_qs,
                         steps_per=self.steps / self.max_steps,
@@ -278,7 +275,6 @@ class Trainer:
                 rewards_of_last_10_epochs.append(rewards.copy())
                 if len(rewards_of_last_10_epochs) > 10:
                     rewards_of_last_10_epochs.pop(0)
-                rewards = []
                 critic_qs = []
                 episode_lengths = []
                 #reset data for the next epoch (data means episode_rewards, episode_lengths, current_episodes in custom_distributed.py)
