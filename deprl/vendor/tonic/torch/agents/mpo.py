@@ -79,8 +79,7 @@ class MPO(Agent):
 
         # Update the model if the replay is ready.
         if self.replay.ready(steps):
-            critic_q = self._update(steps)
-            return critic_q#returns the Q value -----------------------------------------------------------------
+            self._update(steps)
 
 
     def _step(self, observations):
@@ -118,8 +117,6 @@ class MPO(Agent):
             self.model.observation_normalizer.update()
         if self.model.return_normalizer:
             self.model.return_normalizer.update()
-
-        return infos["critic"]["q"]#returns the Q value -----------------------------------------------------------------
 
     def _update_actor_critic(
         self, observations, actions, next_observations, rewards, discounts
