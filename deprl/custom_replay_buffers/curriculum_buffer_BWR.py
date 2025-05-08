@@ -63,7 +63,6 @@ class CurriculumBufferBWR(Buffer):
         num_envs=2,
         length_percentages=None,
         rewards=None,
-        critic_qs=None,
         steps_per=0,
         reward_scale=1,
         collected_velocities=None,
@@ -77,7 +76,6 @@ class CurriculumBufferBWR(Buffer):
             velocities (list): The list of the tuples of the current and target velocities of the tasks.
             length_percentages (list): The lists of the length_percentages of the tasks.
             rewards (list): The list of the rewards of the tasks.
-            critic_qs (float): The q-values of the critic.
             angles (list): The list of the tuples of the current and target angles of the tasks.
 
         Returns:
@@ -94,7 +92,7 @@ class CurriculumBufferBWR(Buffer):
             raise Exception(
                 "length_percentage cannot be None to perform a curriculum step."
             )
-        if rewards is None:
+        if worker_rewards is None:
             raise Exception(
                 "rewards cannot be None to perform a curriculum step."
             )
@@ -133,20 +131,7 @@ class CurriculumBufferBWR(Buffer):
                 self.last_env_index = 1
                 self.last_task = 1
 
-        elif self.mode_env == 3:
-            # change the environment based on the critic q-values
-            # if the q-values are above a threshold, switch to the adult environment
-            mean_q_value = np.mean(critic_qs)
-            if mean_q_value == None:
-                tmp_mode_env = 2
-            else:
-                if mean_q_value >= env_3_threshold:
-                    self.last_env_index = 1
-                
-                if mean_q_value < env_3_threshold and self.last_env_index == 1:
-                    self.last_env_index = 0
-
-        elif self.mode_env == 2 or tmp_mode_env == 2:
+        elif self.mode_env == 2:
             # change the environment based on the reward function
             # if the mean reward is above a threshold, switch to the adult environment
             mean_reward = np.mean(rewards)
