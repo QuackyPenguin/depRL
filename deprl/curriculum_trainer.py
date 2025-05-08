@@ -73,10 +73,9 @@ class Trainer:
         # keep track of data that can be used to update the curriculum
         length_percentages = []
         critic_qs = []
-        episode_lengths = []
         collected_velocities = []
         collected_angles = []
-        rewards_of_last_10_epochs = []
+        # rewards_of_last_10_epochs = []
 
         # get the initial curriculum parameters
         environment_turn = self.agent.replay.last_env_index
@@ -178,7 +177,6 @@ class Trainer:
                     length_percentages.append(
                         lengths[i] / self.environment._max_episode_steps
                     )
-                    episode_lengths.append(lengths[i])
                     scores[i] = 0
                     lengths[i] = 0
                     episodes += 1
@@ -258,7 +256,6 @@ class Trainer:
                     self.agent.replay._curriculum_step(
                         num_envs=self.number_of_environments,
                         length_percentages=length_percentages,
-                        episode_lengths = episode_lengths,
                         critic_qs = critic_qs,
                         steps_per=self.steps / self.max_steps,
                         reward_scale=reward_scale,
@@ -272,11 +269,10 @@ class Trainer:
                 collected_velocities = [(global_worker_index, 0, vel) for global_worker_index, episode, vel in collected_velocities if (not info["resets"][global_worker_index] and episode == worker_episodes[global_worker_index]-1)]
                 collected_angles = [(global_worker_index, 0, angle) for global_worker_index, episode, angle in collected_angles if (not info["resets"][global_worker_index] and episode == worker_episodes[global_worker_index]-1)]
                 length_percentages = []
-                rewards_of_last_10_epochs.append(rewards.copy())
-                if len(rewards_of_last_10_epochs) > 10:
-                    rewards_of_last_10_epochs.pop(0)
+                # rewards_of_last_10_epochs.append(rewards.copy())
+                # if len(rewards_of_last_10_epochs) > 10:
+                #     rewards_of_last_10_epochs.pop(0)
                 critic_qs = []
-                episode_lengths = []
                 #reset data for the next epoch (data means episode_rewards, episode_lengths, current_episodes in custom_distributed.py)
                 self.environment.reset_worker_data()
 

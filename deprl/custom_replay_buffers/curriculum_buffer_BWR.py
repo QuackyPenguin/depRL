@@ -63,7 +63,6 @@ class CurriculumBufferBWR(Buffer):
         num_envs=2,
         length_percentages=None,
         rewards=None,
-        episode_lengths = None,
         critic_qs=None,
         steps_per=0,
         reward_scale=1,
