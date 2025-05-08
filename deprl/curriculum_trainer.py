@@ -75,8 +75,6 @@ class Trainer:
         rewards = []
         critic_qs = []
         episode_lengths = []
-        velocities = []
-        angles = []
         collected_velocities = []
         collected_angles = []
         rewards_of_last_10_epochs = []
@@ -95,12 +93,8 @@ class Trainer:
             muscle_states = muscle_states_list[environment_turn]
 
             current_velocities = self.environment.get_vel()
-
             current_angles = self.environment.get_angles()
             reward_scale=self.environment.get_reward_scale()
-
-            velocities.extend(current_velocities)
-            angles.extend(current_angles)
 
             for vel_info in current_velocities:
                 collected_velocities.append(vel_info)
@@ -269,8 +263,6 @@ class Trainer:
                         rewards=rewards,
                         episode_lengths = episode_lengths,
                         critic_qs = critic_qs,
-                        velocities=velocities,
-                        angles=angles,
                         steps_per=self.steps / self.max_steps,
                         reward_scale=reward_scale,
                         collected_angles = collected_angles,
@@ -279,8 +271,6 @@ class Trainer:
                     )
                 )
 
-                velocities = []
-                angles = []
                 #keep the velocity values and angle values of unfinished episodes
                 collected_velocities = [(global_worker_index, 0, vel) for global_worker_index, episode, vel in collected_velocities if (not info["resets"][global_worker_index] and episode == worker_episodes[global_worker_index]-1)]
                 collected_angles = [(global_worker_index, 0, angle) for global_worker_index, episode, angle in collected_angles if (not info["resets"][global_worker_index] and episode == worker_episodes[global_worker_index]-1)]

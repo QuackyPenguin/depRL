@@ -61,12 +61,10 @@ class CurriculumBufferBWR(Buffer):
     def _curriculum_step(
         self,
         num_envs=2,
-        velocities=None,
         length_percentages=None,
         rewards=None,
         episode_lengths = None,
         critic_qs=None,
-        angles=None,
         steps_per=0,
         reward_scale=1,
         collected_velocities=None,
@@ -101,11 +99,11 @@ class CurriculumBufferBWR(Buffer):
             raise Exception(
                 "rewards cannot be None to perform a curriculum step."
             )
-        if angles is None:
+        if collected_angles is None:
             raise Exception(
                 "angles cannot be None to perform a curriculum step."
             )
-        if velocities is None:
+        if collected_velocities is None:
             raise Exception(
                 "velocities cannot be None to perform a curriculum step."
             )
