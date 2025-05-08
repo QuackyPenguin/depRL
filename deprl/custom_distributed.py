@@ -106,21 +106,6 @@ def proc(
                         envs.episode_lengths[worker_id] = [0]
                         envs.episode_rewards[worker_id] = [0]
 
-            elif message == "get_angle":
-                # index_test=0
-                for env in envs.environments:
-                    # print('env index', index_test)
-                    # index_test+=1
-                    env_queue.put(
-                        (
-                            np.arctan2(
-                                env.unwrapped.model.com_vel().z,
-                                env.unwrapped.model.com_vel().x,
-                            ),
-                            env.unwrapped.angle,
-                        )
-                    )
-
             continue
 
         # message is a tuple of actions, angle_range, and vel_range
@@ -484,7 +469,6 @@ class Parallel:
             pipe.send("reset_worker_data")
 
 
-    
     def get_reward_scale(self):
         # print("Requesting reward_scale from workers...")
         for pipe in self.action_pipes:
@@ -503,16 +487,6 @@ class Parallel:
         
         # print("Completed collecting reward_scale.")
         return reward_scaled[0]
-
-    # def get_angles(self):
-    #     for pipe in self.action_pipes:
-    #         pipe.send("get_angle")
-    #     angles = []
-    #     for _ in self.action_pipes:
-    #         for _ in range(self.workers_per_group):
-    #             angles.append(self.env_queue.get())
-
-    #     return angles
 
     def get_angles(self):
         for group_id, pipe in enumerate(self.action_pipes):
