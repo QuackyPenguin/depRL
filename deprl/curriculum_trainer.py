@@ -72,7 +72,6 @@ class Trainer:
 
         # keep track of data that can be used to update the curriculum
         length_percentages = []
-        critic_qs = []
         collected_velocities = []
         collected_angles = []
         # rewards_of_last_10_epochs = []
@@ -132,12 +131,7 @@ class Trainer:
 
             if "env_infos" in info:
                 info.pop("env_infos")
-            critic_q = self.agent.update(**info, steps=self.steps)
-            if critic_q is not None:
-                critic_qs.extend(critic_q.cpu().numpy())
-                # print("critic_q",np.shape(critic_q))
-                # print("steps", self.steps)
-                # print("criti_qs", np.shape(critic_qs))
+            self.agent.update(**info, steps=self.steps)
 
             scores += info["rewards"]
             lengths += 1
@@ -237,12 +231,6 @@ class Trainer:
                 logger.store("train/steps_per_second", sps)
                 last_epoch_time = time.time()
                 epoch_steps = 0
-        
-                q_values = None
-                if "critic/q" in logger.get_current_logger().epoch_dict:
-                    q_values = logger.get_current_logger().epoch_dict["critic/q"]
-                #     print("shape q-value",np.shape(q_values))
-                # print("shape critic_qs",np.shape(critic_qs))
 
                 logger.dump()
 
@@ -256,7 +244,6 @@ class Trainer:
                     self.agent.replay._curriculum_step(
                         num_envs=self.number_of_environments,
                         length_percentages=length_percentages,
-                        critic_qs = critic_qs,
                         steps_per=self.steps / self.max_steps,
                         reward_scale=reward_scale,
                         collected_angles = collected_angles,
@@ -272,7 +259,6 @@ class Trainer:
                 # rewards_of_last_10_epochs.append(rewards.copy())
                 # if len(rewards_of_last_10_epochs) > 10:
                 #     rewards_of_last_10_epochs.pop(0)
-                critic_qs = []
                 #reset data for the next epoch (data means episode_rewards, episode_lengths, current_episodes in custom_distributed.py)
                 self.environment.reset_worker_data()
 
