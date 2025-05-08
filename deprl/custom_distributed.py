@@ -44,23 +44,17 @@ def proc(
                     env_queue.put(env.unwrapped.model.contact_power())
             elif message == "get_reward_scale":
                 for env in envs.environments:
-                    env_queue.put(env.unwrapped.reward_scale)
+                    env_queue.put(env.unwrapped.get_reward_scale())
             elif message.startswith('get_vel:'):
-                # print('message get_vel', message)
                 group_id = int(message.split(':')[1])
                 for worker_id, env in enumerate(envs.environments):
-                    # print('env get_vel', env)
-                    # print('env_queue', env_queue)
-                    # print('env_queue.put', env_queue.put)
-                    # env.unwrapped.set_current_target_velocity(1) # Test setting vel for testing
-                    #print('current_target_vel:', env.unwrapped.get_current_target_velocity())
                     env_queue.put(
                         (group_id, 
                         worker_id,
                         envs.current_episodes[worker_id],
                         (
-                            env.unwrapped.model_velocity() / env.unwrapped.target_vel,
-                            env.unwrapped.current_target_vel / env.unwrapped.target_vel,
+                            env.unwrapped.get_parallel_velocity() / env.unwrapped.get_target_velocity(),
+                            env.unwrapped.get_current_target_velocity() / env.unwrapped.get_target_velocity(),
                         ))
                     )
             elif message.startswith('get_angle:'):
@@ -71,10 +65,7 @@ def proc(
                         worker_id,
                         envs.current_episodes[worker_id],
                         (
-                            np.arctan2(
-                                env.unwrapped.model.com_vel().z,
-                                env.unwrapped.model.com_vel().x,
-                            ),
+                            env.unwrapped.get_orientation(),
                             env.unwrapped.angle,
                         ))
                     )
@@ -242,11 +233,11 @@ class Sequential:
             env.render_substep()
 
     def get_vel(self):
-        return [(worker_id, self.current_episodes[worker_id], (env.unwrapped.model_velocity()/env.unwrapped.target_vel, env.unwrapped.current_target_vel/env.unwrapped.target_vel)) for worker_id, env in enumerate(self.environments)]
+        return [(worker_id, self.current_episodes[worker_id], (env.unwrapped.get_parallel_velocity()/env.unwrapped.get_target_velocity(), env.unwrapped.get_current_target_velocity()/env.unwrapped.get_target_velocity())) for worker_id, env in enumerate(self.environments)]
     def get_angles(self):
-        return [(worker_id, self.current_episodes[worker_id], (np.arctan2(env.unwrapped.model.com_vel().z, env.unwrapped.model.com_vel().x), env.unwrapped.angle)) for worker_id, env in enumerate(self.environments)]
+        return [(worker_id, self.current_episodes[worker_id], (env.unwrapped.get_orientation(), env.unwrapped.get_current_target_angle())) for worker_id, env in enumerate(self.environments)]
     def get_reward_scale(self):
-        return [env.unwrapped.reward_scale for env in self.environments]
+        return [env.unwrapped.get_reward_scale() for env in self.environments]
     def get_episode_lengths(self):
         episode_lengths = {}
         for worker_id, _ in enumerate(self.environments):
