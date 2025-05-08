@@ -9,9 +9,6 @@ from deprl.utils import stdout_suppression
 from deprl.grid_adaptive_curriculum import GridAdaptiveCurriculum
 
 
-i = 0
-
-
 def proc(
     action_pipe,
     output_queue,
@@ -101,13 +98,7 @@ def proc(
 
         # message is a tuple of actions, angle_range, and vel_range
         # those are the parameters for the step method
-
-        # print('custom_distributed len message', len(message))
-
         actions, angle_range, vel_range, gridAdaptiveCurric, new_task = message
-
-        # print('custom_distributed angle_range', angle_range)
-        # print('custom_distributed vel_range', vel_range)
 
         out = envs.step(actions, angle_range, vel_range, gridAdaptiveCurric, new_task)
         output_queue.put((index, out))
@@ -417,7 +408,6 @@ class Parallel:
 
     def get_vel(self):
         for group_id, pipe in enumerate(self.action_pipes):
-            # pipe.send("get_vel")
             pipe.send(f'get_vel:{group_id}')
         vels = []
         for _ in range(self.worker_groups * self.workers_per_group):
@@ -425,8 +415,6 @@ class Parallel:
             group_id, worker_id, episode, vel_info = vel_info
             global_worker_id = group_id * self.workers_per_group + worker_id
             vels.append((global_worker_id, episode, vel_info))
-            # vel_info = self.env_queue.get()
-            # vels.append(vel_info)
         return vels
     
     def get_episode_lengths(self):
