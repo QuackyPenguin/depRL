@@ -95,12 +95,9 @@ class Trainer:
             muscle_states = muscle_states_list[environment_turn]
 
             current_velocities = self.environment.get_vel()
-            #test_scone_vel(self.test_environment, self.agent, steps, params)
-            #self.environment.get_vel()
+
             current_angles = self.environment.get_angles()
             reward_scale=self.environment.get_reward_scale()
-
-            # print('reward_scale curr trainer:', reward_scale)
 
             velocities.extend(current_velocities)
             angles.extend(current_angles)
@@ -122,7 +119,6 @@ class Trainer:
                 observations, self.steps, muscle_states, greedy_episode
             )
             assert not np.isnan(actions.sum())
-            # raise Exception(f'{type(self.environment.environments[0])}')
             logger.store("train/action", actions, stats=True)
 
             # action variance is calculated as the mean of the variances of each column (muscle activation of every agent action)
@@ -172,8 +168,6 @@ class Trainer:
                     )
                     # store the current environment parameters
                     logger.store("train/environment_index", environment_turn)
-                    # logger.store("train/angle_range", angle_range[1])
-                    # logger.store("train/vel_range", vel_range[1])
                     logger.store("train/angle_range", np.max(gridAdaptiveCurric.grid[:,1]))
                     logger.store("train/neg_angle_range", np.min(gridAdaptiveCurric.grid[:,1]))
                     logger.store("train/vel_range", np.max(gridAdaptiveCurric.grid[:,0]))
@@ -237,7 +231,6 @@ class Trainer:
                         _ = test_mujoco(
                             self.test_environment, self.agent, steps, params
                         )
-                # print('test_scone', test_scone(self.test_environment, self.agent, steps, params))
 
                 # Log the data.
                 epochs += 1
