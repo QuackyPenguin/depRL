@@ -66,7 +66,7 @@ def proc(
                         envs.current_episodes[worker_id],
                         (
                             env.unwrapped.get_orientation(),
-                            env.unwrapped.angle,
+                            env.unwrapped.get_current_target_angle(),
                         ))
                     )
             elif message.startswith('get_episode_lengths:'):
