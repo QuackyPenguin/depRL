@@ -22,19 +22,25 @@ class CurriculumBufferBWR(Buffer):
         # initialize the environment index, angle range, velocity range
         self.epochs_above_threshold = 0
         self.last_env_index = 0
-        self.last_angle_range = (0, 0)
-        self.last_vel_range = (0,0) #(1, 1)
+        initial_angle_range = (0, 0)
+        initial_vel_range = (0,0)
+        self.resolution = (0.1, np.pi/8)
+        success_threshold = 1500
+        self.task = "standing"
+        self.epoch_counter = 0
         # 0 - target task, 1 - velocity task, 2 - orientation task
         # initial task is for the 4 year old
         self.last_task = 1
 
         # initialize the grid adaptive curriculum
-        self.resolution = (0.1, np.pi/8)
         self.gridAdaptiveCurric = GridAdaptiveCurriculum(
-            vel_range=(0.0, 0.0), angle_range=(0,0), resolution=self.resolution, success_threshold=1500, decay_rate=0.5
+            vel_range=initial_vel_range, 
+            angle_range=initial_angle_range, 
+            resolution=self.resolution, 
+            success_threshold=success_threshold, 
+            decay_rate=0.5
         )
-        self.task = "standing"
-        self.epoch_counter = 0
+
 
         # #try221, mode_target=7
         # self.curr_num_of_updates_vel = 0
@@ -98,7 +104,6 @@ class CurriculumBufferBWR(Buffer):
                 "velocities cannot be None to perform a curriculum step."
             )
 
-        env_0_threshold = [0.7,0.35] #[0.35, 0.2]
         env_1_threshold = 1.1 # for 2.5e7 steps total until 1e7 in 4-year-old then adult 
         #env_2_threshold = 1000
         env_2_threshold = [1000, 3, -2]
@@ -725,8 +730,6 @@ class CurriculumBufferBWR(Buffer):
 
         return (
             self.last_env_index,
-            self.last_angle_range,
-            self.last_vel_range,
             self.last_task,
             self.gridAdaptiveCurric
         )

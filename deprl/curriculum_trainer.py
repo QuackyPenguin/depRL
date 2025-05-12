@@ -77,8 +77,6 @@ class Trainer:
 
         # get the initial curriculum parameters
         environment_turn = self.agent.replay.last_env_index
-        angle_range = self.agent.replay.last_angle_range
-        vel_range = self.agent.replay.last_vel_range
         gridAdaptiveCurric = self.agent.replay.gridAdaptiveCurric
         task = self.agent.replay.last_task
 
@@ -124,7 +122,7 @@ class Trainer:
 
             # Take a step in the environments.
             observations, muscle_states, info = self.environment.step(
-                actions, angle_range, vel_range, gridAdaptiveCurric, task
+                actions, gridAdaptiveCurric, task
             )
             observations_list[environment_turn] = observations
             muscle_states_list[environment_turn] = muscle_states
@@ -234,7 +232,7 @@ class Trainer:
                 number_of_episodes = [len(episode_lengths[i]) for i in range(len(episode_lengths))]
 
                 # update the curriculum, once per epoch
-                environment_turn, angle_range, vel_range, task, gridAdaptiveCurric = (
+                environment_turn, task, gridAdaptiveCurric = (
                     self.agent.replay._curriculum_step(
                         num_envs=self.number_of_environments,
                         steps_per=self.steps / self.max_steps,
