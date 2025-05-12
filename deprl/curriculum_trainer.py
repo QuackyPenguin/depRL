@@ -71,9 +71,9 @@ class Trainer:
         steps_since_save = 0
 
         # keep track of data that can be used to update the curriculum
-        length_percentages = []
-        collected_velocities = []
-        collected_angles = []
+        length_percentages = [] 
+        collected_velocities = [] # to collect the velocities of all workers with information on the episode, format: [(global_worker_index, episode, (norm. actual vel. step, norm. target vel.)), ...]
+        collected_angles = [] # to collect the angles of all workers with information on the episode, format: [(global_worker_index, episode, (actual angle, target angle)), ...]
         # rewards_of_last_10_epochs = []
 
         # get the initial curriculum parameters
@@ -89,6 +89,7 @@ class Trainer:
             observations = observations_list[environment_turn]
             muscle_states = muscle_states_list[environment_turn]
 
+            # Get the current environment parameters and store them in the lists.
             current_velocities = self.environment.get_velocities()
             current_angles = self.environment.get_angles()
             reward_scale=self.environment.get_reward_scale()
@@ -183,9 +184,6 @@ class Trainer:
             # End of the epoch.
             if epoch_steps >= self.epoch_steps:
                 # Evaluate the agent on the test environment.
-                # for i in range(num_workers):
-                #     if i == 0:
-                #         gridAdaptiveCurric.plot(label = f"weight[0] = {gridAdaptiveCurric.weights[0]}", title = f"# epochs: {epochs}", save_path = f"/home/nadinebadie/denis/valentin_results/grid-adaptive-curric_target/try63/grid-plots-worker0/{epochs}.png")
                 if self.test_environment is not None:
                     if (
                         "control"
@@ -234,10 +232,10 @@ class Trainer:
 
                 logger.dump()
 
-                # get the rewards and lengths for each worker and episode over the last epoch, also get the number of episodes per worker
-                worker_episode_rewards = self.environment.get_episode_rewards()
-                worker_episode_lengths = self.environment.get_episode_lengths()
-                worker_episodes = [len(worker_episode_lengths[i]) for i in range(len(worker_episode_lengths))]
+                # get the rewards and lengths for each episode of each worker over the last epoch, also get the number of episodes which were running in the epoch for each worker
+                episode_rewards = self.environment.get_episode_rewards()
+                episode_lengths = self.environment.get_episode_lengths()
+                number_of_episodes = [len(episode_lengths[i]) for i in range(len(episode_lengths))]
 
                 # update the curriculum, once per epoch
                 environment_turn, angle_range, vel_range, task, gridAdaptiveCurric = (
@@ -248,20 +246,18 @@ class Trainer:
                         reward_scale=reward_scale,
                         collected_angles = collected_angles,
                         collected_velocities = collected_velocities,
-                        worker_rewards = worker_episode_rewards,
+                        worker_rewards = episode_rewards,
                     )
                 )
 
-                #keep the velocity values and angle values of unfinished episodes
-                collected_velocities = [(global_worker_index, 0, vel) for global_worker_index, episode, vel in collected_velocities if (not info["resets"][global_worker_index] and episode == worker_episodes[global_worker_index]-1)]
-                collected_angles = [(global_worker_index, 0, angle) for global_worker_index, episode, angle in collected_angles if (not info["resets"][global_worker_index] and episode == worker_episodes[global_worker_index]-1)]
+                #delete the vel/angle information of the previous epoch, but keep the velocity and angle values of unfinished episodes
+                collected_velocities = [(global_worker_index, 0, vel) for global_worker_index, episode, vel in collected_velocities if (not info["resets"][global_worker_index] and episode == number_of_episodes[global_worker_index]-1)]
+                collected_angles = [(global_worker_index, 0, angle) for global_worker_index, episode, angle in collected_angles if (not info["resets"][global_worker_index] and episode == number_of_episodes[global_worker_index]-1)]
                 length_percentages = []
                 # rewards_of_last_10_epochs.append(rewards.copy())
                 # if len(rewards_of_last_10_epochs) > 10:
                 #     rewards_of_last_10_epochs.pop(0)
                 #reset data for the next epoch (data means episode_rewards, episode_lengths, current_episodes in custom_distributed.py)
-                self.environment.reset_worker_data()
-
 
 
             # End of training.
