@@ -244,10 +244,11 @@ class Trainer:
                 #delete the vel/angle information of the previous epoch, but keep the velocity and angle values of unfinished episodes
                 collected_velocities = [(global_worker_index, 0, vel) for global_worker_index, episode, vel in collected_velocities if (not info["resets"][global_worker_index] and episode == number_of_episodes[global_worker_index]-1)]
                 collected_angles = [(global_worker_index, 0, angle) for global_worker_index, episode, angle in collected_angles if (not info["resets"][global_worker_index] and episode == number_of_episodes[global_worker_index]-1)]
+                #reset data for the next epoch (data means episode_rewards, episode_lengths, current_episodes in custom_distributed.py)
+                self.environment.reset_worker_data()
                 # rewards_of_last_10_epochs.append(rewards.copy())
                 # if len(rewards_of_last_10_epochs) > 10:
                 #     rewards_of_last_10_epochs.pop(0)
-                #reset data for the next epoch (data means episode_rewards, episode_lengths, current_episodes in custom_distributed.py)
 
 
             # End of training.
