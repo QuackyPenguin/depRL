@@ -96,11 +96,11 @@ def proc(
 
             continue
 
-        # message is a tuple of actions, angle_range, and vel_range
+        # message is a tuple of actions and gridAdaptiveCurric
         # those are the parameters for the step method
-        actions, angle_range, vel_range, gridAdaptiveCurric, new_task = message
+        actions, gridAdaptiveCurric, new_task = message
 
-        out = envs.step(actions, angle_range, vel_range, gridAdaptiveCurric, new_task)
+        out = envs.step(actions, gridAdaptiveCurric, new_task)
         output_queue.put((index, out))
 
 
@@ -152,8 +152,6 @@ class Sequential:
     def step(
         self,
         actions,
-        angle_range: tuple = (-np.pi / 4, np.pi / 4),
-        vel_range: tuple = (0.25, 1.0),
         gridAdaptiveCurric = GridAdaptiveCurriculum(vel_range=(0.25, 1.25), angle_range=(-np.pi, np.pi), resolution=(0.1, np.pi/32)), # muss hier als default gesetzt werden, weil beim testen im curriculum_trainer die gridAdaptiveCurric nicht gesetzt wird, aber diese Funktion hier aufgerufen wird
         new_task: int = 0,
     ):
@@ -167,8 +165,6 @@ class Sequential:
         for i in range(len(self.environments)):
             ob, rew, term, env_info = self.environments[i].step(
                 actions[i],
-                angle_range=angle_range,
-                vel_range=vel_range,
                 new_task=new_task,
             )
             muscle = self.environments[i].muscle_states
@@ -187,8 +183,6 @@ class Sequential:
                 self.episode_lengths[i].append(0)
                 self.episode_rewards[i].append(0)
                 ob = self.environments[i].reset(
-                    angle_range=angle_range,
-                    vel_range=vel_range,
                     gridAdaptiveCurric = gridAdaptiveCurric,
                     new_task=new_task,
                 )
@@ -419,14 +413,12 @@ class Parallel:
     def step(
         self,
         actions,
-        angle_range: tuple = (-np.pi / 4, np.pi / 4),
-        vel_range: tuple = (0.25, 1.0),
         gridAdaptiveCurric = None,
         new_task: int = 0,
     ):
         actions_list = np.split(actions, self.worker_groups)
         for actions, pipe in zip(actions_list, self.action_pipes):
-            pipe.send((actions, angle_range, vel_range, gridAdaptiveCurric, new_task))
+            pipe.send((actions, gridAdaptiveCurric, new_task))
 
         for _ in range(self.worker_groups):
             index, (
