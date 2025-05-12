@@ -130,10 +130,10 @@ class Sequential:
         self.observation_space = self.environments[0].observation_space
         self.action_space = self.environments[0].action_space
         self.name = self.environments[0].name
-        self.num_workers = workers
-        self.current_episodes = [0] * self.num_workers
-        self.episode_lengths = [[0] for _ in range(self.num_workers)]
-        self.episode_rewards = [[0] for _ in range(self.num_workers)]
+        self.num_workers = workers #number of sequential workers
+        self.current_episodes = [0] * self.num_workers #list to store the number of episodes each worker has completed
+        self.episode_lengths = [[0] for _ in range(self.num_workers)] #list containing lists to store the lengths of all episodes for each worker
+        self.episode_rewards = [[0] for _ in range(self.num_workers)] #list containing lists to store the rewards of all episodes for each worker
 
     def initialize(self, seed):
         # group seed is given, the others are determined from it
@@ -221,22 +221,91 @@ class Sequential:
             env.render_substep()
 
     def get_vel(self):
+        """
+        Get the current normalized actual velocity and normalized target velocity of the environment for each worker. 
+        Additionally, retrieve the corresponding worker IDs and the index of the current episode.
+
+        The normalized velocities are calculated as follows:
+        - Normalized actual velocity: actual velocity divided by the target velocity.
+        - Normalized target velocity: current target velocity divided by the target velocity.
+
+        Args:
+            None
+        Returns:
+            list: A list of tuples in the format:
+                  (worker_id, current_episode_index, (normalized_actual_velocity, normalized_target_velocity)),
+                  where:
+                  - worker_id (int): The ID of the worker (worker_id = 1, ..., n_sequentiel).
+                  - current_episode_index (int): The index of the current episode (e.g., if the worker has completed 20 episodes, 
+                    the current episode index is 20, representing the 21st episode).
+                  - normalized_actual_velocity (float): The actual velocity normalized by the target velocity.
+                  - normalized_target_velocity (float): The current target velocity normalized by the target velocity.
+        """
         return [(worker_id, self.current_episodes[worker_id], (env.unwrapped.get_parallel_velocity()/env.unwrapped.get_target_velocity(), env.unwrapped.get_current_target_velocity()/env.unwrapped.get_target_velocity())) for worker_id, env in enumerate(self.environments)]
     def get_angles(self):
+        """
+        Get the current orientation and target angle of the environment for each worker.
+        Additionally, retrieve the corresponding worker IDs and the index of the current episode.
+        Args:
+            None
+        Returns:
+            list: A list of tuples in the format:
+                  (worker_id, current_episode_index, (orientation, target_angle)),
+                  where:
+                  - worker_id (int): The ID of the worker (worker_id = 1, ..., n_sequentiel).
+                  - current_episode_index (int): The index of the current episode (e.g., if the worker has completed 20 episodes,
+                    the current episode index is 20, representing the 21st episode).
+                  - orientation (float): The current orientation of the environment.
+                  - target_angle (float): The current target angle of the environment.
+        """
         return [(worker_id, self.current_episodes[worker_id], (env.unwrapped.get_orientation(), env.unwrapped.get_current_target_angle())) for worker_id, env in enumerate(self.environments)]
     def get_reward_scale(self):
+        """
+        Get the reward scale of the environment for each worker.
+        Args:
+            None
+        Returns:
+            list: A list of reward scales for each worker.
+        """
         return [env.unwrapped.get_reward_scale() for env in self.environments]
     def get_episode_lengths(self):
+        """
+        Get the episode lengths for each worker. Each worker has its own list of episode lengths. 
+        The list contains the lengths of all episodes of the worker (completed episodes as well as currently running).
+        Args:
+            None
+        Returns:
+            dict: A dictionary where the keys are worker IDs and the values are lists of episode lengths.
+        """
         episode_lengths = {}
         for worker_id, _ in enumerate(self.environments):
             episode_lengths[worker_id] = self.episode_lengths[worker_id]
         return episode_lengths
     def get_episode_rewards(self):
+        """
+        Get the episode rewards for each worker. Each worker has its own list of episode rewards.
+        The list contains the rewards of all episodes of the worker (completed episodes as well as currently running).
+        Args:
+            None
+        Returns:
+            dict: A dictionary where the keys are worker IDs and the values are lists of episode rewards.
+        """
         episode_rewards = {}
         for worker_id, _ in enumerate(self.environments):
             episode_rewards[worker_id] = self.episode_rewards[worker_id]
         return episode_rewards
     def reset_worker_data(self):
+        """
+        Clear the worker data for each environment. This includes resetting the current episode index,
+        episode lengths, and episode rewards for each worker. If a worker has not completed an episode,
+        the last entry of the episode lengths and rewards lists is kept.
+        This function is useful for resetting the data after a certain condition is met (e.g., 
+        when the worker has completed an epoch).
+        Args:
+            None
+        Returns:
+            None
+        """
         for worker_id, _ in enumerate(self.environments):
             if self.lengths[worker_id] != 0:
                 self.current_episodes[worker_id] = 0
@@ -407,6 +476,29 @@ class Parallel:
                 models.append(self.env_queue.get())
 
     def get_vel(self):
+        """
+        Get the current normalized actual velocity and normalized target velocity of the environment for each worker.
+        Additionally, retrieve the corresponding global worker IDs and the index of the current episode.
+        
+        The normalized velocities are calculated as follows:
+        - Normalized actual velocity: actual velocity divided by the target velocity.
+        - Normalized target velocity: current target velocity divided by the target velocity.
+        The global worker ID is calculated from the group ID and worker ID, where:
+        - group_id (int): The ID of the worker group (group_id = 1, ..., n_parallel).
+        - worker_id (int): The ID of the worker within the group (worker_id = 1, ..., n_sequentiel).
+        
+        Args:
+            None
+        Returns:
+            list: A list of tuples in the format:
+                  (global_worker_id, current_episode_index, (normalized_actual_velocity, normalized_target_velocity)),
+                  where:
+                  - global_worker_id (int): The global ID of the worker.
+                  - current_episode_index (int): The index of the current episode (e.g., if the worker has completed 20 episodes,
+                    the current episode index is 20, representing the 21st episode).
+                  - normalized_actual_velocity (float): The actual velocity normalized by the target velocity.
+                  - normalized_target_velocity (float): The current target velocity normalized by the target velocity.
+        """
         for group_id, pipe in enumerate(self.action_pipes):
             pipe.send(f'get_vel:{group_id}')
         vels = []
@@ -417,7 +509,41 @@ class Parallel:
             vels.append((global_worker_id, episode, vel_info))
         return vels
     
+    def get_angles(self):
+        """
+        Get the current orientation and target angle of the environment for each worker.
+        Additionally, retrieve the corresponding global worker IDs and the index of the current episode.
+        Args:
+            None
+        Returns:
+            list: A list of tuples in the format:
+                  (global_worker_id, current_episode_index, (orientation, target_angle)),
+                  where:
+                  - global_worker_id (int): The global ID of the worker.
+                  - current_episode_index (int): The index of the current episode (e.g., if the worker has completed 20 episodes,
+                    the current episode index is 20, representing the 21st episode).
+                  - orientation (float): The current orientation of the environment.
+                  - target_angle (float): The current target angle of the environment.
+        """
+        for group_id, pipe in enumerate(self.action_pipes):
+            pipe.send(f'get_angle:{group_id}')
+        angles = []
+        for _ in range(self.worker_groups * self.workers_per_group):
+            angle_info = self.env_queue.get()
+            group_id, worker_id, episode, angle_info = angle_info
+            global_worker_id = group_id * self.workers_per_group + worker_id
+            angles.append((global_worker_id, episode, angle_info))
+        return angles
+    
     def get_episode_lengths(self):
+        """
+        Get the episode lengths for each worker. Each worker has its own list of episode lengths.
+        The list contains the lengths of all episodes of the worker (completed episodes as well as currently running).
+        Args:
+            None
+        Returns:
+            dict: A dictionary where the keys are global worker IDs and the values are lists of episode lengths.
+        """
         for group_id, pipe in enumerate(self.action_pipes):
             pipe.send(f'get_episode_lengths:{group_id}')
         episode_lengths = {}
@@ -429,6 +555,14 @@ class Parallel:
         return episode_lengths
     
     def get_episode_rewards(self):
+        """
+        Get the episode rewards for each worker. Each worker has its own list of episode rewards.
+        The list contains the rewards of all episodes of the worker (completed episodes as well as currently running).
+        Args:
+            None
+        Returns:
+            dict: A dictionary where the keys are global worker IDs and the values are lists of episode rewards.
+        """
         for group_id, pipe in enumerate(self.action_pipes):
             pipe.send(f'get_episode_rewards:{group_id}')
         episode_rewards = {}
@@ -440,18 +574,36 @@ class Parallel:
         return episode_rewards
     
     def reset_worker_data(self):
+        """
+        Clear the worker data for each environment. This includes resetting the current episode index,
+        episode lengths, and episode rewards for each worker. If a worker has not completed an episode,
+        the last entry of the episode lengths and rewards lists is kept.
+        This function is useful for resetting the data after a certain condition is met (e.g.,
+        when the worker has completed an epoch).
+        Args:
+            None
+        Returns:
+            None
+        """
         for pipe in self.action_pipes:
             pipe.send("reset_worker_data")
 
 
     def get_reward_scale(self):
+        """
+        Get the reward scale of the environment for each worker.
+        Args:
+            None
+        Returns:
+            list: A list of reward scales for each worker.
+        """
         # print("Requesting reward_scale from workers...")
         for pipe in self.action_pipes:
             pipe.send("get_reward_scale")
-        reward_scaled = []
+        reward_scales = []
         for _ in self.action_pipes:
             for _ in range(self.workers_per_group):
-                reward_scaled.append(self.env_queue.get())
+                reward_scales.append(self.env_queue.get())
                 # print('self.env_queue:', self.env_queue.unwrapped)
                 # try:
                 #     scale = self.env_queue.get(timeout=5)  # Set a timeout
@@ -461,18 +613,7 @@ class Parallel:
                 #     print("No response from worker within timeout period.")
         
         # print("Completed collecting reward_scale.")
-        return reward_scaled[0]
-
-    def get_angles(self):
-        for group_id, pipe in enumerate(self.action_pipes):
-            pipe.send(f'get_angle:{group_id}')
-        angles = []
-        for _ in range(self.worker_groups * self.workers_per_group):
-            angle_info = self.env_queue.get()
-            group_id, worker_id, episode, angle_info = angle_info
-            global_worker_id = group_id * self.workers_per_group + worker_id
-            angles.append((global_worker_id, episode, angle_info))
-        return angles
+        return reward_scales[0]
 
     def curriculum_adjust(self, score):
         pass
