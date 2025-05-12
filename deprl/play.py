@@ -145,22 +145,16 @@ def play_scone(
     higher_angle,
     lower_vel,
     higher_vel,
-    gridAdaptiveCurric,
+    resolution
 ):
     """Launches an agent in a Gym-based environment."""
     set_scone_save_path(checkpoint_path, environment, name)
     if not no_render:
         environment.store_next_episode()
-    if gridAdaptiveCurric:
-        curric = SamplingGrid((lower_vel, higher_vel), (lower_angle, higher_angle),resolution=(0.1,np.pi/8))
-        observations = environment.reset(
-            gridAdaptiveCurric=curric,
-        )
-    else:
-        observations = environment.reset(
-            angle_range=(lower_angle, higher_angle),
-            vel_range=(lower_vel, higher_vel),
-        )
+    sampling_grid = SamplingGrid((lower_vel, higher_vel), (lower_angle, higher_angle),resolution=resolution)
+    observations = environment.reset(
+        sampling_grid=sampling_grid,
+    )
     muscle_states = environment.muscle_states
 
     score = 0
@@ -209,15 +203,9 @@ def play_scone(
             if not no_render:
                 environment.write_now()
                 environment.store_next_episode()
-            if gridAdaptiveCurric:
-                observations = environment.reset(
-                    gridAdaptiveCurric=SamplingGrid((lower_vel, higher_vel), (lower_angle, higher_angle), resolution=(0.1, np.pi / 8)),
-                )
-            else:
-                observations = environment.reset(
-                    angle_range=(lower_angle, higher_angle),
-                    vel_range=(lower_vel, higher_vel),
-                )
+            observations = environment.reset(
+                gridAdaptiveCurric=SamplingGrid((lower_vel, higher_vel), (lower_angle, higher_angle), resolution=resolution),
+            )
             muscle_states = environment.muscle_states
 
             score = 0
@@ -336,7 +324,6 @@ def play(
     higher_angle,
     lower_vel,
     higher_vel,
-    gridAdaptiveCurric,
 ):
     """Reloads an agent and an environment from a previous experiment."""
 
@@ -403,7 +390,6 @@ def play(
             higher_angle,
             lower_vel,
             higher_vel,
-            gridAdaptiveCurric,
         )
     else:
         play_gym(agent, environment, noisy, num_episodes, no_render)
@@ -427,7 +413,7 @@ if __name__ == "__main__":
     parser.add_argument("--higher_angle", type=float, default=np.pi)
     parser.add_argument("--lower_vel", type=float, default=0.3)
     parser.add_argument("--higher_vel", type=float, default=1.2)
-    parser.add_argument("--gridAdaptiveCurric", action="store_true")
+    parser.add_argument("--resolution", type=float, default=(0.1, np.pi / 8))
     # The probability of getting the stand task (velocity = 0)
     args = vars(parser.parse_args())
     check_args(args)
