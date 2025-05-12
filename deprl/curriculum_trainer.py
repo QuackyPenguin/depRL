@@ -71,7 +71,6 @@ class Trainer:
         steps_since_save = 0
 
         # keep track of data that can be used to update the curriculum
-        length_percentages = [] 
         collected_velocities = [] # to collect the velocities of all workers with information on the episode, format: [(global_worker_index, episode, (norm. actual vel. step, norm. target vel.)), ...]
         collected_angles = [] # to collect the angles of all workers with information on the episode, format: [(global_worker_index, episode, (actual angle, target angle)), ...]
         # rewards_of_last_10_epochs = []
@@ -169,9 +168,6 @@ class Trainer:
                             )
                             self.agent.replay.adjust(scores[i])
 
-                    length_percentages.append(
-                        lengths[i] / self.environment._max_episode_steps
-                    )
                     scores[i] = 0
                     lengths[i] = 0
                     episodes += 1
@@ -241,7 +237,6 @@ class Trainer:
                 environment_turn, angle_range, vel_range, task, gridAdaptiveCurric = (
                     self.agent.replay._curriculum_step(
                         num_envs=self.number_of_environments,
-                        length_percentages=length_percentages,
                         steps_per=self.steps / self.max_steps,
                         reward_scale=reward_scale,
                         collected_angles = collected_angles,
@@ -253,7 +248,6 @@ class Trainer:
                 #delete the vel/angle information of the previous epoch, but keep the velocity and angle values of unfinished episodes
                 collected_velocities = [(global_worker_index, 0, vel) for global_worker_index, episode, vel in collected_velocities if (not info["resets"][global_worker_index] and episode == number_of_episodes[global_worker_index]-1)]
                 collected_angles = [(global_worker_index, 0, angle) for global_worker_index, episode, angle in collected_angles if (not info["resets"][global_worker_index] and episode == number_of_episodes[global_worker_index]-1)]
-                length_percentages = []
                 # rewards_of_last_10_epochs.append(rewards.copy())
                 # if len(rewards_of_last_10_epochs) > 10:
                 #     rewards_of_last_10_epochs.pop(0)
