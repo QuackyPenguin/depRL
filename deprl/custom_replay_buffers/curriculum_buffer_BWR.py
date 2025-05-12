@@ -759,7 +759,7 @@ class CurriculumBufferBWR(Buffer):
             for episode_id, reward in enumerate(rewards):
                 if episode_id in episode_data[global_worker_id]:
                     episode_data[global_worker_id][episode_id]['reward'] = reward
-                elif episode_id not in episode_data[global_worker_id] and episode_id == len(rewards) - 1 and reward == 0:
+                elif episode_id not in episode_data[global_worker_id] and episode_id == len(rewards) - 1 and abs(reward) < 1e-3:
                     pass
                 else:
                     raise ValueError(f"Episode {episode_id} not found for worker {global_worker_id}")
