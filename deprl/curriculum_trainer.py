@@ -89,7 +89,7 @@ class Trainer:
             observations = observations_list[environment_turn]
             muscle_states = muscle_states_list[environment_turn]
 
-            current_velocities = self.environment.get_vel()
+            current_velocities = self.environment.get_velocities()
             current_angles = self.environment.get_angles()
             reward_scale=self.environment.get_reward_scale()
 

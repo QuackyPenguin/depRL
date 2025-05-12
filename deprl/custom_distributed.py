@@ -42,7 +42,7 @@ def proc(
             elif message == "get_reward_scale":
                 for env in envs.environments:
                     env_queue.put(env.unwrapped.get_reward_scale())
-            elif message.startswith('get_vel:'):
+            elif message.startswith('get_velocity:'):
                 group_id = int(message.split(':')[1])
                 for worker_id, env in enumerate(envs.environments):
                     env_queue.put(
@@ -220,7 +220,7 @@ class Sequential:
         for env in self.environments:
             env.render_substep()
 
-    def get_vel(self):
+    def get_velocities(self):
         """
         Get the current normalized actual velocity and normalized target velocity of the environment for each worker. 
         Additionally, retrieve the corresponding worker IDs and the index of the current episode.
@@ -475,7 +475,7 @@ class Parallel:
             for _ in range(self.workers_per_group):
                 models.append(self.env_queue.get())
 
-    def get_vel(self):
+    def get_velocities(self):
         """
         Get the current normalized actual velocity and normalized target velocity of the environment for each worker.
         Additionally, retrieve the corresponding global worker IDs and the index of the current episode.
@@ -500,7 +500,7 @@ class Parallel:
                   - normalized_target_velocity (float): The current target velocity normalized by the target velocity.
         """
         for group_id, pipe in enumerate(self.action_pipes):
-            pipe.send(f'get_vel:{group_id}')
+            pipe.send(f'get_velocity:{group_id}')
         vels = []
         for _ in range(self.worker_groups * self.workers_per_group):
             vel_info = self.env_queue.get()
