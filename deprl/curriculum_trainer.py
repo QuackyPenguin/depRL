@@ -76,7 +76,7 @@ class Trainer:
 
         # get the initial curriculum parameters
         environment_turn = self.agent.replay.last_env_index
-        gridAdaptiveCurric = self.agent.replay.gridAdaptiveCurric
+        sampling_grid = self.agent.replay.sampling_grid
         task = self.agent.replay.last_task
 
         while True:
@@ -121,7 +121,7 @@ class Trainer:
 
             # Take a step in the environments.
             observations, muscle_states, info = self.environment.step(
-                actions, gridAdaptiveCurric, task
+                actions, sampling_grid, task
             )
             observations_list[environment_turn] = observations
             muscle_states_list[environment_turn] = muscle_states
@@ -151,9 +151,9 @@ class Trainer:
                     )
                     # store the current environment parameters
                     logger.store("train/environment_index", environment_turn)
-                    logger.store("train/max_target_vel", np.max(gridAdaptiveCurric.grid[:,0]))
-                    logger.store("train/max_target_angle", np.max(gridAdaptiveCurric.grid[:,1]))
-                    logger.store("train/min_target_angle", np.min(gridAdaptiveCurric.grid[:,1]))
+                    logger.store("train/max_target_vel", np.max(sampling_grid.grid[:,0]))
+                    logger.store("train/max_target_angle", np.max(sampling_grid.grid[:,1]))
+                    logger.store("train/min_target_angle", np.min(sampling_grid.grid[:,1]))
                     logger.store("train/task", task)
 
                     if i == 0:
@@ -231,7 +231,7 @@ class Trainer:
                 number_of_episodes = [len(episode_lengths[i]) for i in range(len(episode_lengths))]
 
                 # update the curriculum, once per epoch
-                environment_turn, task, gridAdaptiveCurric = (
+                environment_turn, task, sampling_grid = (
                     self.agent.replay._curriculum_step(
                         steps_per=self.steps / self.max_steps,
                         reward_scale=reward_scale,

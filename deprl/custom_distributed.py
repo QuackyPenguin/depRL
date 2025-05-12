@@ -6,7 +6,7 @@ import numpy as np
 
 from deprl.utils import stdout_suppression
 
-from deprl.grid_adaptive_curriculum import GridAdaptiveCurriculum
+from deprl.sampling_grid import SamplingGrid
 
 
 def proc(
@@ -96,11 +96,11 @@ def proc(
 
             continue
 
-        # message is a tuple of actions and gridAdaptiveCurric
+        # message is a tuple of actions and sampling_grid
         # those are the parameters for the step method
-        actions, gridAdaptiveCurric, new_task = message
+        actions, sampling_grid, new_task = message
 
-        out = envs.step(actions, gridAdaptiveCurric, new_task)
+        out = envs.step(actions, sampling_grid, new_task)
         output_queue.put((index, out))
 
 
@@ -152,7 +152,7 @@ class Sequential:
     def step(
         self,
         actions,
-        gridAdaptiveCurric = GridAdaptiveCurriculum(vel_range=(0.25, 1.25), angle_range=(-np.pi, np.pi), resolution=(0.1, np.pi/32)), # muss hier als default gesetzt werden, weil beim testen im curriculum_trainer die gridAdaptiveCurric nicht gesetzt wird, aber diese Funktion hier aufgerufen wird
+        sampling_grid = SamplingGrid(vel_range=(0.25, 1.25), angle_range=(-np.pi, np.pi), resolution=(0.1, np.pi/32)), # muss hier als default gesetzt werden, weil beim testen im curriculum_trainer das SamplingGrid-Objekt nicht gesetzt wird, aber diese Funktion hier aufgerufen wird
         new_task: int = 0,
     ):
         next_observations = []  # Observations for the transitions.
@@ -183,7 +183,7 @@ class Sequential:
                 self.episode_lengths[i].append(0)
                 self.episode_rewards[i].append(0)
                 ob = self.environments[i].reset(
-                    gridAdaptiveCurric = gridAdaptiveCurric,
+                    sampling_grid = sampling_grid,
                     new_task=new_task,
                 )
                 muscle = self.environments[i].muscle_states
@@ -413,12 +413,12 @@ class Parallel:
     def step(
         self,
         actions,
-        gridAdaptiveCurric = None,
+        sampling_grid = None,
         new_task: int = 0,
     ):
         actions_list = np.split(actions, self.worker_groups)
         for actions, pipe in zip(actions_list, self.action_pipes):
-            pipe.send((actions, gridAdaptiveCurric, new_task))
+            pipe.send((actions, sampling_grid, new_task))
 
         for _ in range(self.worker_groups):
             index, (

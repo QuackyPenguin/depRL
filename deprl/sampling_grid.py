@@ -1,9 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import griddata
 
 
-class GridAdaptiveCurriculum:
+class SamplingGrid:
     def __init__(self, vel_range=(-1.0, 1.0), angle_range=(-1, 1), resolution=(0.5, 0.5), success_threshold=1000, decay_rate = 0):
         self.resolution_vel = resolution[0]
         self.resolution_angle = resolution[1]

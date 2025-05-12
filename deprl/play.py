@@ -9,7 +9,7 @@ from deprl import env_wrappers, mujoco_render
 from deprl.utils import load_checkpoint
 from deprl.vendor.tonic import logger
 
-from deprl.grid_adaptive_curriculum import GridAdaptiveCurriculum
+from deprl.sampling_grid import SamplingGrid
 
 
 def set_scone_save_path(checkpoint_path, env, name):
@@ -152,7 +152,7 @@ def play_scone(
     if not no_render:
         environment.store_next_episode()
     if gridAdaptiveCurric:
-        curric = GridAdaptiveCurriculum((lower_vel, higher_vel), (lower_angle, higher_angle),resolution=(0.1,np.pi/8))
+        curric = SamplingGrid((lower_vel, higher_vel), (lower_angle, higher_angle),resolution=(0.1,np.pi/8))
         observations = environment.reset(
             gridAdaptiveCurric=curric,
         )
@@ -211,7 +211,7 @@ def play_scone(
                 environment.store_next_episode()
             if gridAdaptiveCurric:
                 observations = environment.reset(
-                    gridAdaptiveCurric=GridAdaptiveCurriculum((lower_vel, higher_vel), (lower_angle, higher_angle), resolution=(0.1, np.pi / 8)),
+                    gridAdaptiveCurric=SamplingGrid((lower_vel, higher_vel), (lower_angle, higher_angle), resolution=(0.1, np.pi / 8)),
                 )
             else:
                 observations = environment.reset(
