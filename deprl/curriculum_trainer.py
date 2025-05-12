@@ -152,9 +152,9 @@ class Trainer:
                     )
                     # store the current environment parameters
                     logger.store("train/environment_index", environment_turn)
-                    logger.store("train/angle_range", np.max(gridAdaptiveCurric.grid[:,1]))
-                    logger.store("train/neg_angle_range", np.min(gridAdaptiveCurric.grid[:,1]))
-                    logger.store("train/vel_range", np.max(gridAdaptiveCurric.grid[:,0]))
+                    logger.store("train/max_target_vel", np.max(gridAdaptiveCurric.grid[:,0]))
+                    logger.store("train/max_target_angle", np.max(gridAdaptiveCurric.grid[:,1]))
+                    logger.store("train/min_target_angle", np.min(gridAdaptiveCurric.grid[:,1]))
                     logger.store("train/task", task)
 
                     if i == 0:
