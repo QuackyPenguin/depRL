@@ -60,8 +60,6 @@ class CurriculumBufferBWR(Buffer):
 
     def _curriculum_step(
         self,
-        num_envs=2,
-        length_percentages=None,
         rewards=None,
         steps_per=0,
         reward_scale=1,
@@ -74,7 +72,6 @@ class CurriculumBufferBWR(Buffer):
         Args:
             num_envs (int): The number of environments in the curriculum.
             velocities (list): The list of the tuples of the current and target velocities of the tasks.
-            length_percentages (list): The lists of the length_percentages of the tasks.
             rewards (list): The list of the rewards of the tasks.
             angles (list): The list of the tuples of the current and target angles of the tasks.
 
@@ -88,10 +85,6 @@ class CurriculumBufferBWR(Buffer):
 
         old_env_index = self.last_env_index
 
-        if length_percentages is None:
-            raise Exception(
-                "length_percentage cannot be None to perform a curriculum step."
-            )
         if worker_rewards is None:
             raise Exception(
                 "rewards cannot be None to perform a curriculum step."
@@ -113,16 +106,6 @@ class CurriculumBufferBWR(Buffer):
 
         if self.no_switch > 0:
             self.no_switch -= 1
-
-        elif self.mode_env == 0:
-            # change the environment based on the average length percentage of an episode
-            avg_length_percentage = np.mean(length_percentages)
-            if self.last_env_index == 0:
-                if avg_length_percentage >= env_0_threshold[0] and self.last_vel_range[1] > 0.7:	
-                    self.last_env_index = 1
-            elif self.last_env_index == 1:
-                if avg_length_percentage <= env_0_threshold[1]:
-                    self.last_env_index = 0
 
         elif self.mode_env == 1:
             # change the environments at a fixed percentage of steps
