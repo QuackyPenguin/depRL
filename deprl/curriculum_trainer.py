@@ -45,7 +45,6 @@ class Trainer:
         self.agent = agent
         self.environments = environments
         self.test_environment = test_environment
-        self.number_of_environments = len(environments)
 
         self.environment = None
 
@@ -234,7 +233,6 @@ class Trainer:
                 # update the curriculum, once per epoch
                 environment_turn, task, gridAdaptiveCurric = (
                     self.agent.replay._curriculum_step(
-                        num_envs=self.number_of_environments,
                         steps_per=self.steps / self.max_steps,
                         reward_scale=reward_scale,
                         collected_angles = collected_angles,
