@@ -145,13 +145,13 @@ def play_scone(
     higher_angle,
     lower_vel,
     higher_vel,
-    resolution
+    grid_resolution
 ):
     """Launches an agent in a Gym-based environment."""
     set_scone_save_path(checkpoint_path, environment, name)
     if not no_render:
         environment.store_next_episode()
-    sampling_grid = SamplingGrid((lower_vel, higher_vel), (lower_angle, higher_angle),resolution=resolution)
+    sampling_grid = SamplingGrid((lower_vel, higher_vel), (lower_angle, higher_angle),resolution=grid_resolution)
     observations = environment.reset(
         sampling_grid=sampling_grid,
     )
@@ -199,12 +199,12 @@ def play_scone(
             print(f"Global min reward: {min_reward:,.3f}")
             print(f"Global max reward: {max_reward:,.3f}")
             print(f"Target velocity: {environment.current_target_vel}")
-            print(f"Target angle in degrees: {np.rad2deg(environment.angle)}")
+            print(f"Target angle in degrees: {np.rad2deg(environment.current_target_angle)}")
             if not no_render:
                 environment.write_now()
                 environment.store_next_episode()
             observations = environment.reset(
-                gridAdaptiveCurric=SamplingGrid((lower_vel, higher_vel), (lower_angle, higher_angle), resolution=resolution),
+                sampling_grid=SamplingGrid((lower_vel, higher_vel), (lower_angle, higher_angle), resolution=grid_resolution),
             )
             muscle_states = environment.muscle_states
 
@@ -324,6 +324,7 @@ def play(
     higher_angle,
     lower_vel,
     higher_vel,
+    grid_resolution,
 ):
     """Reloads an agent and an environment from a previous experiment."""
 
@@ -390,6 +391,7 @@ def play(
             higher_angle,
             lower_vel,
             higher_vel,
+            grid_resolution
         )
     else:
         play_gym(agent, environment, noisy, num_episodes, no_render)
@@ -413,8 +415,8 @@ if __name__ == "__main__":
     parser.add_argument("--higher_angle", type=float, default=np.pi)
     parser.add_argument("--lower_vel", type=float, default=0.3)
     parser.add_argument("--higher_vel", type=float, default=1.2)
-    parser.add_argument("--resolution", type=float, default=(0.1, np.pi / 8))
-    # The probability of getting the stand task (velocity = 0)
+    parser.add_argument("--grid_resolution", type=tuple, default=(0.1, np.pi / 8))
+
     args = vars(parser.parse_args())
     check_args(args)
     play(**args)
