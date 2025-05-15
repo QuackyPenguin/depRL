@@ -38,7 +38,6 @@ class CurriculumBufferBWR(Buffer):
             angle_range=initial_angle_range, 
             resolution=self.resolution, 
             success_threshold=success_threshold, 
-            decay_rate=0.5
         )
 
 
@@ -104,10 +103,8 @@ class CurriculumBufferBWR(Buffer):
                 "velocities cannot be None to perform a curriculum step."
             )
 
-        env_1_threshold = 1.1 # for 2.5e7 steps total until 1e7 in 4-year-old then adult 
-        #env_2_threshold = 1000
-        env_2_threshold = [1000, 3, -2]
-        env_3_threshold = 1500
+        env_1_threshold = 1.1
+        env_2_threshold = 2000
 
         if self.no_switch > 0:
             self.no_switch -= 1
@@ -123,31 +120,8 @@ class CurriculumBufferBWR(Buffer):
             # change the environment based on the reward function
             # if the mean reward is above a threshold, switch to the adult environment
             mean_reward = np.mean(rewards)
-            if mean_reward >= env_2_threshold[0]:
-                if self.epochs_above_threshold >= 0:
-                    self.epochs_above_threshold += 1
-                else:
-                    self.epochs_above_threshold = 1
-            else:
-                if self.epochs_above_threshold <= 0:
-                    self.epochs_above_threshold -= 1
-                else:
-                    self.epochs_above_threshold = -1
-            # if mean_reward >= env_2_threshold:
-            #     self.last_env_index = 1
-            # if mean_reward < env_2_threshold and self.last_env_index == 1:
-            #     self.last_env_index = 0
-            if self.epochs_above_threshold >= env_2_threshold[1]:
+            if mean_reward >= env_2_threshold:
                 self.last_env_index = 1
-                self.epochs_above_threshold = 0
-            if self.epochs_above_threshold <= env_2_threshold[2] and self.last_env_index == 1:
-                self.last_env_index = 0
-                self.epochs_above_threshold = 0
-        
-
-        # if the environment was switched, the agent cannot switch again for a certain number of steps
-        if self.last_env_index != old_env_index:
-            self.no_switch = 5
 
         target_0_threshold = [0.5,0.3] #[0.3,0.2] #[0.5, 0.15] #0.6
         # target_1_threshold[0] = env_1_threshold, so that the ranges are not changed until the environment is switched to the adult
@@ -158,6 +132,8 @@ class CurriculumBufferBWR(Buffer):
 
         # print('reward_scale buffer', reward_scale)
         if self.mode_target == 0:
+            # THIS MODE DOES CURRENTLY NOT WORK ANYMORE, SINCE THE VELOCITIES AND ANGLES ARE STORED WITH WORKER AND EPISODE INFORMATION
+            # FURTHERMORE, SAMPLING IS NOT DONE FROM THE RANGES ANYMORE, INSTEAD SAMPLING IS DONE FROM THE SAMPLING GRID
             # increase the velocity range if the average difference between the current and target velocities is below a threshold
             print("velocity shape",np.shape(velocities))
             vel_percent_diffs = [
@@ -206,6 +182,8 @@ class CurriculumBufferBWR(Buffer):
                 print('angle_percent change', angle_percent)
 
         elif self.mode_target == 1:
+            # THIS MODE DOES CURRENTLY NOT WORK ANYMORE, SINCE THE VELOCITIES AND ANGLES ARE STORED WITH WORKER AND EPISODE INFORMATION
+            # FURTHERMORE, SAMPLING IS NOT DONE FROM THE RANGES ANYMORE, INSTEAD SAMPLING IS DONE FROM THE SAMPLING GRID
             # increase the ranges based on the number of steps, but not simultaneously
             if steps_per <= target_1_threshold[0]:
                 vel_percent = min(1, (steps_per - target_1_threshold[0]) / 0.2)
