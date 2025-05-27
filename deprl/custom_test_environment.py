@@ -161,7 +161,7 @@ def test_scone(env, agent, steps, params=None, test_episodes=10):
             )
             metrics["test/terminated"] += int(info["terminations"])
 
-            # vel.append(env.environments[0].model_velocity())
+            # vel.append(env.environments[0].get_parallel_velocity())
             # vel_target.append(env.environments[0].get_current_target_velocity())
 
             if eval_rwd_metrics:
@@ -227,9 +227,9 @@ def test_scone_vel(env, agent, steps, num_envs, angle_range, vel_range, params=N
             # Take a step in the environment.
             env.test_observations, _, info = env.step(actions)
 
-            # vel.append(env.environments[num_envs].model_velocity())
+            # vel.append(env.environments[num_envs].get_parallel_velocity())
             # vel_target.append(env.environments[num_envs].get_current_target_velocity())
-            vel=env.environments[num_envs].model_velocity()
+            vel=env.environments[num_envs].get_parallel_velocity()
             vel_target=env.environments[num_envs].get_current_target_velocity()
             velocities.append([vel,vel_target])
 
