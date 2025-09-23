@@ -280,18 +280,6 @@ class CurriculumBufferBWR(Buffer):
         elif self.mode_target == 110:
             episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
 
-            #track episode vels and angles
-            for global_worker_id, data in episode_data.items():
-                for episode, tmp_data in data.items():
-                    target_vel = tmp_data['velocity'][0][1]
-                    target_angle = tmp_data['angle'][0][1]
-                    self.sampling_grid.add_episode_to_counts(target_vel, target_angle)
-                    self.sampling_grid.add_episode_to_counts(target_vel, target_angle,tmp=True)
-            self.sampling_grid.plot_counts(tmp=True,savepath=f"/home/nadinebadie/denis/valentin_results/test_19_0/tmp_counts/{self.epoch_counter}.png")
-            self.sampling_grid.reset_tmp_counts()
-            self.sampling_grid.plot_counts(tmp=False,savepath=f"/home/nadinebadie/denis/valentin_results/test_19_0/total_counts/{self.epoch_counter}.png")
-            self.epoch_counter += 1
-
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
                 print("mean reward", mean_reward)
@@ -325,18 +313,6 @@ class CurriculumBufferBWR(Buffer):
         elif self.mode_target == 120:
             episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
 
-            #  #track episode vels and angles
-            # for global_worker_id, data in episode_data.items():
-            #     for episode, tmp_data in data.items():
-            #         target_vel = tmp_data['velocity'][0][1]
-            #         target_angle = tmp_data['angle'][0][1]
-            #         self.sampling_grid.add_episode_to_counts(target_vel, target_angle)
-            #         self.sampling_grid.add_episode_to_counts(target_vel, target_angle,tmp=True)
-            # self.sampling_grid.plot_counts(tmp=True,savepath=f"/home/nadinebadie/denis/valentin_results/results_21/tmp_counts/{self.epoch_counter}.png")
-            # self.sampling_grid.reset_tmp_counts()
-            # self.sampling_grid.plot_counts(tmp=False,savepath=f"/home/nadinebadie/denis/valentin_results/results_21/total_counts/{self.epoch_counter}.png")
-            # self.epoch_counter += 1
-
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
                 print("mean reward", mean_reward)
@@ -366,18 +342,6 @@ class CurriculumBufferBWR(Buffer):
         
         elif self.mode_target == 130:
             episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
-            
-            # #track episode vels and angles
-            # for global_worker_id, data in episode_data.items():
-            #     for episode, tmp_data in data.items():
-            #         target_vel = tmp_data['velocity'][0][1]
-            #         target_angle = tmp_data['angle'][0][1]
-            #         self.sampling_grid.add_episode_to_counts(target_vel, target_angle)
-            #         self.sampling_grid.add_episode_to_counts(target_vel, target_angle,tmp=True)
-            # self.sampling_grid.plot_counts(tmp=True,savepath=f"/home/nadinebadie/denis/valentin_results/results_31-0-try2/tmp_counts/{self.epoch_counter}.png")
-            # self.sampling_grid.reset_tmp_counts()
-            # self.sampling_grid.plot_counts(tmp=False,savepath=f"/home/nadinebadie/denis/valentin_results/results_31-0-try2/total_counts/{self.epoch_counter}.png")
-            # self.epoch_counter += 1
 
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
@@ -464,18 +428,6 @@ class CurriculumBufferBWR(Buffer):
 
         elif self.mode_target == 140:
             episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
-            
-            # #track episode vels and angles
-            # for global_worker_id, data in episode_data.items():
-            #     for episode, tmp_data in data.items():
-            #         target_vel = tmp_data['velocity'][0][1]
-            #         target_angle = tmp_data['angle'][0][1]
-            #         self.sampling_grid.add_episode_to_counts(target_vel, target_angle)
-            #         self.sampling_grid.add_episode_to_counts(target_vel, target_angle,tmp=True)
-            # self.sampling_grid.plot_counts(tmp=True,savepath=f"/home/nadinebadie/denis/valentin_results/results_41-0/tmp_counts/{self.epoch_counter}.png")
-            # self.sampling_grid.reset_tmp_counts()
-            # self.sampling_grid.plot_counts(tmp=False,savepath=f"/home/nadinebadie/denis/valentin_results/results_41-0/total_counts/{self.epoch_counter}.png")
-            # self.epoch_counter += 1
 
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
@@ -525,6 +477,16 @@ class CurriculumBufferBWR(Buffer):
         )
 
     def _set_up_episode_data(self, collected_velocities, collected_angles, worker_episode_rewards):
+        """Set up a nested dictionary to store episode data for each worker.
+        Args:
+            collected_velocities (list): A list of tuples containing (global_worker_id, (normalized_actual_velocity, normalized_target_velocity))
+            collected_angles (list): A list of tuples containing (global_worker_id, (actual_angle, target_angle))
+            worker_episode_rewards (dictionary): A dictionary mapping global_worker_id to a list of rewards for each episode.
+
+        Returns:
+            dict: each key corresponds to a worker, for each worker there is a dictionary with the completed episodes as keys, each completed episode contains information
+            on the velocities, angles and the reward of this episode in a dict 
+        """
         episode_data = {}
         # Loop through the entries and populate the nested dictionary with velocities
         for global_worker_id, episode, velocity in collected_velocities:
@@ -569,7 +531,7 @@ class CurriculumBufferBWR(Buffer):
 
 
 
-    # not used in the current implementation, was used just for changing the environment
+    # function by denis; not used in the current implementation, was used just for changing the environment
     def _get_env_index(
         self,
         num_envs=3,
