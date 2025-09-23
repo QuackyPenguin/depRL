@@ -38,10 +38,24 @@ class CurriculumBufferBWR(Buffer):
         self.mode_target = kwargs.pop("mode_target", 0)
 
         if self.mode_env not in [0, 1, 2]:
+            """
+            0: fixed percentage of steps in each environment
+            1: switch to adult environment reward-based
+            2: no environment curriculum, always use initial environment
+            """
             raise Exception(
                 f"Mode {self.mode_env} of the environment is not implemented."
             )
-        if self.mode_target not in [0, 1, 2, 3, 4, 5, 6, 7, 100, 110, 120, 130, 135, 140, 146]:
+        if self.mode_target not in [14, 19, 22, 27, 31, 46]:
+            """
+            target curriculum detailed explanations: see thesis of Valentin
+            14 - target angle curriculum
+            19 - angle benchmark for 14
+            22 - target velocity curriculum
+            27 - velocity benchmark for 22
+            31 - target angle and velocity curriculum
+            46 - no target curriculum
+            """
             raise Exception(
                 f"Mode {self.mode_target} of the targets is not implemented."
             )
@@ -56,12 +70,11 @@ class CurriculumBufferBWR(Buffer):
     def _curriculum_step(
         self,
         steps_per=0,
-        reward_scale=1,
         collected_velocities=None,
         collected_angles=None,
         worker_rewards=None,
     ):
-        """Perform a curriculum step. Update the environment index, angle range, and velocity range.
+        """Perform a curriculum step. Update the environment index and the sampling grid.
 
         Args:
             collected_velocities (list): The list of the tuples of the current and target velocities of the tasks; format: [(global_worker_id, episode_index, (normalized_actual_velocity, normalized_target_velocity))]_i.
@@ -89,7 +102,7 @@ class CurriculumBufferBWR(Buffer):
         # get the data (target velocity and angle, actual velocity and angle, episode reward) from the workers for all episodes in the epoch
         episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
 
-        # #### comment in if you want to plot the numbers of episodes at each node in the sampling grid after each epoch
+        # #### COMMENT IN IF YOU WANT TO PLOT THE NUMBERS OF EPISODES AT EACH NODE IN THE SAMPLING GRID AFTER EACH EPOCH
         # #### tmp_counts: counts of episodes at each node in the sampling grid for the current epoch
         # #### total_counts: counts of episodes at each node in the sampling grid for all epochs so far
         # for global_worker_id, data in episode_data.items():
@@ -106,7 +119,8 @@ class CurriculumBufferBWR(Buffer):
         # self.sampling_grid.plot(save_path=f"/home/nadinebadie/denis/valentin_results/test0/sampling_grid/{self.epoch_counter}.png")
         # self.epoch_counter += 1
 
-        #### Curriculum for the environment
+
+        #### CURRICULA FOR THE ENVIRONMENT
         if self.mode_env == 0:
             # change the environments at a fixed percentage of steps
             self.last_task = 2
@@ -118,8 +132,8 @@ class CurriculumBufferBWR(Buffer):
             # change the environment based on the reward function
             # if the mean reward is above a threshold, switch to the adult environment
             rewards = []
-            for global_worker_id, data in episode_data.items():
-                for episode, tmp_data in data.items():
+            for _, data in episode_data.items():
+                for _, tmp_data in data.items():
                     rewards.append(tmp_data['reward'])
             mean_reward = np.mean(rewards)
             if mean_reward >= self.env_1_threshold:
@@ -130,16 +144,42 @@ class CurriculumBufferBWR(Buffer):
             print(f"No environment curriculum, using environment {self.last_env_index} for all epochs.")
 
         
-        #### Curriculum for the targets (target angle, target velocity)        
-        elif self.mode_target == 100:
-            # Dictionary to store episode data
-            episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
+        #### CURRICULA FOR THE TARGETS (TARGET ANGLE, TARGET VELOCITY)
+        if self.mode_target == 14:
+            """Section 6.3.1 Target angle curriculum: 
+            standing phase: 0 target velocity, 0 target angle
+            walking phase: keep target velocity fixed at 0.3, increase target angle range reward-based"""
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
                 print("mean reward", mean_reward)
-                if mean_reward >= 2100:#2000
+                if mean_reward >= 2100:
                     self.task = "walking"
                     self.sampling_grid._extend_grid_velocity(skip=2)
+                    self.sampling_grid._adapt_weights_03_04()
+                    print("switch to walking")
+            elif self.task == "walking":
+                for _, data in episode_data.items():
+                    for _, tmp_data in data.items():
+                        target_vel = tmp_data['velocity'][0][1]
+                        target_angle = tmp_data['angle'][0][1]
+                        reward = tmp_data['reward']
+                        self.sampling_grid.update_08_04_fixed_weights_angle(target_vel,target_angle,reward)
+                self.sampling_grid._adapt_weights_03_04()
+                for i in range(len(self.sampling_grid.grid)):
+                    if self.sampling_grid.grid[i][0] == 0:
+                        self.sampling_grid.weights[i] = 0
+
+        elif self.mode_target == 19:
+            """Section 6.3.1 Target angle benchmark: benchmark for mode_target 14
+            standing phase: 0 target velocity, 0 target angle
+            walking phase: keep target velocity fixed at 0.3, full target angle range"""
+            if self.task == "standing":
+                mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
+                print("mean reward", mean_reward)
+                if mean_reward >= 2100:
+                    self.task = "walking"
+                    self.sampling_grid._extend_grid_velocity(skip=2)
+                    self.sampling_grid._adapt_weights_03_04()
                     print("switch to walking")
                     max_angle = 0
                     while max_angle < np.pi-1e-3:
@@ -151,14 +191,11 @@ class CurriculumBufferBWR(Buffer):
                     for i in range(len(self.sampling_grid.grid)):
                         if self.sampling_grid.grid[i][0] == 0:
                             self.sampling_grid.weights[i] = 0
-            # elif self.task == "walking":
-            #     mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
-            #     if mean_reward >= 1500:
-            #         self.last_env_index = 1
-
-        elif self.mode_target == 110:
-            episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
-
+        
+        elif self.mode_target == 22:
+            """Section 6.3.2 Target velocity curriculum:
+            standing phase: 0 target velocity, 0 target angle
+            walking phase: keep target angle fixed at 0, increase target velocity range reward-based"""
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
                 print("mean reward", mean_reward)
@@ -166,32 +203,21 @@ class CurriculumBufferBWR(Buffer):
                     self.task = "walking"
                     self.sampling_grid._extend_grid_velocity(skip=2)
                     self.sampling_grid._adapt_weights_03_04()
-                    print("switch to walking")
-                    # max_angle = 0
-                    # while max_angle < np.pi-1e-3:
-                    #     self.sampling_grid._extend_grid_angle_top()
-                    #     self.sampling_grid._extend_grid_angle_bottom()
-                    #     angles = self.sampling_grid.grid[:, 1]
-                    #     max_angle = np.max(angles)
-                    # self.sampling_grid._adapt_weights_03_04()
-                    # for i in range(len(self.sampling_grid.grid)):
-                    #     if self.sampling_grid.grid[i][0] == 0:
-                    #         self.sampling_grid.weights[i] = 0
+                    self.sampling_grid.weights[0] = 0
+                    print("switch to walking")        
             elif self.task == "walking":
                 for global_worker_id, data in episode_data.items():
                     for episode, tmp_data in data.items():
                         target_vel = tmp_data['velocity'][0][1]
                         target_angle = tmp_data['angle'][0][1]
                         reward = tmp_data['reward']
-                        self.sampling_grid.update_08_04_fixed_weights_angle(target_vel,target_angle,reward)
-                self.sampling_grid._adapt_weights_03_04()
-                for i in range(len(self.sampling_grid.grid)):
-                    if self.sampling_grid.grid[i][0] == 0:
-                        self.sampling_grid.weights[i] = 0
-        
-        elif self.mode_target == 120:
-            episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
+                        self.sampling_grid.update_03_04_fixed_weights(steps_per,target_vel,target_angle,reward)
+                        self.sampling_grid.weights[0] = 0
 
+        elif self.mode_target == 27:
+            """Section 6.3.2 Target velocity benchmark: benchmark for mode_target 22
+            standing phase: 0 target velocity, 0 target angle
+            walking phase: keep target angle fixed at 0, full target velocity range (0, 1.2)"""
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
                 print("mean reward", mean_reward)
@@ -209,19 +235,13 @@ class CurriculumBufferBWR(Buffer):
                     self.sampling_grid._adapt_weights_03_04()
                     for i in range(len(self.sampling_grid.grid)):
                         if self.sampling_grid.grid[i][0] == 0:
-                            self.sampling_grid.weights[i] = 0        
-            # elif self.task == "walking":
-            #     for global_worker_id, data in episode_data.items():
-            #         for episode, tmp_data in data.items():
-            #             target_vel = tmp_data['velocity'][0][1]
-            #             target_angle = tmp_data['angle'][0][1]
-            #             reward = tmp_data['reward']
-            #             self.sampling_grid.update_03_04_fixed_weights(steps_per,target_vel,target_angle,reward)
-            #             self.sampling_grid.weights[0] = 0
+                            self.sampling_grid.weights[i] = 0     
         
-        elif self.mode_target == 130:
-            episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
-
+        elif self.mode_target == 31:
+            """Section 6.3.3 Target angle and velocity curriculum:
+            standing phase: 0 target velocity, 0 target angle
+            walking phase: increase target angle range reward-based with fixed target velocity 0.3 until 2/3 of the training steps, 
+            then stop increasing the target angle range and increase the max target velocity from 0.3 to 0.7 equitemporarily"""
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
                 print("mean reward", mean_reward)
@@ -235,8 +255,8 @@ class CurriculumBufferBWR(Buffer):
                         if self.sampling_grid.grid[i][0] == 0:
                             self.sampling_grid.weights[i] = 0      
             elif self.task == "walking":
-                for global_worker_id, data in episode_data.items():
-                    for episode, tmp_data in data.items():
+                for _, data in episode_data.items():
+                    for _, tmp_data in data.items():
                         target_vel = tmp_data['velocity'][0][1]
                         target_angle = tmp_data['angle'][0][1]
                         reward = tmp_data['reward']
@@ -255,105 +275,16 @@ class CurriculumBufferBWR(Buffer):
                     if self.sampling_grid.grid[i][0] == 0:
                         self.sampling_grid.weights[i] = 0
 
-
-        elif self.mode_target == 135:
-            if steps_per >= 0.1:
-                self.last_env_index = 1
-            # Dictionary to store episode data
-            episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
-           
-            if self.task == "standing":
-                mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
-                print("mean reward", mean_reward)
-                if mean_reward >= 2000:
-                    self.task = "walking"
-                    self.sampling_grid._extend_grid_velocity(skip=2)
-                    self.sampling_grid._adapt_weights()
-                    self.sampling_grid.weights[0] = 0
-                    print("switch to walking")
-            elif self.task == "walking":
-                # Maximum velocity and angle
-                max_velocity = np.max(self.sampling_grid.grid[:, 0])
-                max_angle = np.max(self.sampling_grid.grid[:, 1])
-                min_angle = np.min(self.sampling_grid.grid[:, 1])
-                print("max velocity", max_velocity)
-                print("max angle", max_angle)
-                print ("min angle", min_angle)
-
-                # Tolerance for "closeness"
-                tolerance = 1e-2
-       
-                #Filter episodes (version of meeting on 12.02.2024)
-                #put all episodes to the filtered dict, are on the edges and close to the corners
-                filtered_episodes = {}
-                tolerance_vel = 1.5 * self.resolution[0]
-                tolerance_angle = 1.5 * self.resolution[1]
-                for global_worker_id, data in episode_data.items():
-                    for episode, tmp_data in data.items():
-                        target_vel = tmp_data['velocity'][0][1]
-                        target_angle = tmp_data['angle'][0][1]
-                        if ((abs(target_angle - max_angle) < tolerance_angle or abs(target_angle - min_angle) < tolerance_angle) and abs(target_vel - max_velocity) < tolerance_vel):
-                            if abs(target_vel - max_velocity) < tolerance or abs(target_angle - max_angle) < tolerance or abs(target_angle - min_angle) < tolerance:
-                                if global_worker_id not in filtered_episodes:
-                                    filtered_episodes[global_worker_id] = {}
-                                # print("Target velocity: ", target_vel, "Target angle: ", target_angle, "worker: ", global_worker_id, "episode: ", episode, "max velocity: ", max_velocity, "max angle: ", max_angle)
-                                filtered_episodes[global_worker_id][episode] = tmp_data
-                                reward = tmp_data['reward']
-                                self.sampling_grid.update(
-                                    steps_per, target_vel, target_angle, reward
-                                    )
-
-
-
-        elif self.mode_target == 140:
-            episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
-
-            if self.task == "standing":
-                mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
-                print("mean reward", mean_reward)
-                if mean_reward >= 2000:
-                    self.task = "walking"
-                    self.sampling_grid._extend_grid_velocity(skip=2)
-                    self.sampling_grid._adapt_weights_03_04()
-                    self.sampling_grid.weights[0] = 0
-                    print("switch to walking")
-                    for i in range(len(self.sampling_grid.grid)):
-                        if self.sampling_grid.grid[i][0] == 0:
-                            self.sampling_grid.weights[i] = 0      
-            elif self.task == "walking":
-                for global_worker_id, data in episode_data.items():
-                    for episode, tmp_data in data.items():
-                        target_vel = tmp_data['velocity'][0][1]
-                        target_angle = tmp_data['angle'][0][1]
-                        reward = tmp_data['reward']
-                        self.sampling_grid.update_08_04_fixed_weights_angle(target_vel,target_angle,reward)
-                        for i in range(len(self.sampling_grid.grid)):
-                            if self.sampling_grid.grid[i][0] == 0:
-                                self.sampling_grid.weights[i] = 0
-                if steps_per > 1/3:
-                        self.task = "learn_different_speeds"
-                        print("switch to learn_different_speeds")
-            elif self.task == "learn_different_speeds":
-                transformed_steps_per = steps_per - 1/3
-                transformed_steps_per = transformed_steps_per / (1 - 1/3)
-                self.sampling_grid.update_fixed(transformed_steps_per)
-                for i in range(len(self.sampling_grid.grid)):
-                    if self.sampling_grid.grid[i][0] == 0:
-                        self.sampling_grid.weights[i] = 0
-                mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
-                print("mean reward", mean_reward)
-                max_vel = np.max(self.sampling_grid.grid[:, 0])
-                if max_vel >= 0.5 - 1e-3 and mean_reward >= 1600:
-                    self.last_env_index= 1
-
-        elif self.mode_target == 146:
-            print("do nothing")
+        elif self.mode_target == 46:
+            """Section 6.1 Training without any curriculum strategy"""
+            print("No target curriculum, using the initial targets for all epochs.")
 
         return (
             self.last_env_index,
             self.last_task,
             self.sampling_grid
         )
+
 
     def _set_up_episode_data(self, collected_velocities, collected_angles, worker_episode_rewards):
         """Set up a nested dictionary to store episode data for each worker.
