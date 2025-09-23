@@ -12,22 +12,15 @@ class CurriculumBufferBWR(Buffer):
     """
 
     def __init__(self, *args, **kwargs):
-        # performance threshold that needs to be achieved
-        # still needs to be implemented
-        self.threshold = kwargs.pop("threshold", 1000)
-
-        # after switching the environment, the agent cannot switch again for a certain number of steps
-        self.no_switch = 0
-
         # initialize the environment index, angle range, velocity range
-        self.epochs_above_threshold = 0
-        self.last_env_index = 0
+        self.last_env_index = 1 # 0 - 4 year old, 1 - adult
         initial_angle_range = (0, 0)
         initial_vel_range = (0,0)
         self.resolution = (0.1, np.pi/8)
-        success_threshold = 1500
+        success_threshold = 1250
         self.task = "standing"
         self.epoch_counter = 0
+
         # 0 - target task, 1 - velocity task, 2 - orientation task
         # initial task is for the 4 year old
         self.last_task = 1
@@ -40,16 +33,11 @@ class CurriculumBufferBWR(Buffer):
             success_threshold=success_threshold, 
         )
 
-
-        # #try221, mode_target=7
-        # self.curr_num_of_updates_vel = 0
-        # self.num_of_updates_vel = int(1.2 / 0.1)
-
         # get the mode for switching the environment and the targets (angle, velocity, standing)
         self.mode_env = kwargs.pop("mode_env", 0)
         self.mode_target = kwargs.pop("mode_target", 0)
 
-        if self.mode_env not in [0, 1, 2, 3, 4]:
+        if self.mode_env not in [0, 1, 2]:
             raise Exception(
                 f"Mode {self.mode_env} of the environment is not implemented."
             )
@@ -57,15 +45,16 @@ class CurriculumBufferBWR(Buffer):
             raise Exception(
                 f"Mode {self.mode_target} of the targets is not implemented."
             )
+        
+        # set settings for environment curriculum methods
+        self.env_0_threshold = 0.4 # percentage of steps in the 4-year-old environment
+        self.env_1_threshold = 2000 # threshold for the mean reward to switch to the adult environment
 
         # Initial values ----------------
-        self.cdt_avg = 0
-        self.score_avg = 0
         super().__init__(*args, **kwargs)
 
     def _curriculum_step(
         self,
-        rewards=None,
         steps_per=0,
         reward_scale=1,
         collected_velocities=None,
@@ -75,21 +64,15 @@ class CurriculumBufferBWR(Buffer):
         """Perform a curriculum step. Update the environment index, angle range, and velocity range.
 
         Args:
-            num_envs (int): The number of environments in the curriculum.
-            velocities (list): The list of the tuples of the current and target velocities of the tasks.
-            rewards (list): The list of the rewards of the tasks.
-            angles (list): The list of the tuples of the current and target angles of the tasks.
+            collected_velocities (list): The list of the tuples of the current and target velocities of the tasks; format: [(global_worker_id, episode_index, (normalized_actual_velocity, normalized_target_velocity))]_i.
+            collected_angles (list): The list of the tuples of the current and target angles of the tasks; format: [(global_worker_id, episode_index, (actual_angle, target_angle))]_i.
+            worker_rewards (dictionary): The list of the rewards of the tasks.
 
         Returns:
             int: The index of the environment to use.
-            list: The new angle range.
-            list: The new velocity range.
-            float: The probability of tbe standing task to be selected.
+            list: The new sampling grid.
             int: The task to be selected.
         """
-
-        old_env_index = self.last_env_index
-
         if worker_rewards is None:
             raise Exception(
                 "rewards cannot be None to perform a curriculum step."
@@ -102,27 +85,53 @@ class CurriculumBufferBWR(Buffer):
             raise Exception(
                 "velocities cannot be None to perform a curriculum step."
             )
+        
+        # get the data (target velocity and angle, actual velocity and angle, episode reward) from the workers for all episodes in the epoch
+        episode_data = self._set_up_episode_data(collected_velocities, collected_angles, worker_rewards)
 
-        env_1_threshold = 1.1
-        env_2_threshold = 2000
+        # #### comment in if you want to plot the numbers of episodes at each node in the sampling grid after each epoch
+        # #### tmp_counts: counts of episodes at each node in the sampling grid for the current epoch
+        # #### total_counts: counts of episodes at each node in the sampling grid for all epochs so far
+        # for global_worker_id, data in episode_data.items():
+        #         for episode, tmp_data in data.items():
+        #             target_vel = tmp_data['velocity'][0][1]
+        #             target_angle = tmp_data['angle'][0][1]
+        #             self.sampling_grid.add_episode_to_counts(target_vel, target_angle)
+        #             self.sampling_grid.add_episode_to_counts(target_vel, target_angle,tmp=True)
+        # self.sampling_grid.plot_counts(tmp=True,save_path=f"/home/nadinebadie/denis/valentin_results/test0/tmp_counts/{self.epoch_counter}.png")
+        # self.sampling_grid.reset_tmp_counts()
+        # self.sampling_grid.plot_counts(tmp=False,save_path=f"/home/nadinebadie/denis/valentin_results/test0/total_counts/{self.epoch_counter}.png")
 
-        if self.no_switch > 0:
-            self.no_switch -= 1
+        # #### comment in if you want to plot the sampling grid after each epoch
+        # self.sampling_grid.plot(save_path=f"/home/nadinebadie/denis/valentin_results/test0/sampling_grid/{self.epoch_counter}.png")
+        # self.epoch_counter += 1
 
-        elif self.mode_env == 1:
+        #### Curriculum for the environment
+        if self.mode_env == 0:
             # change the environments at a fixed percentage of steps
             self.last_task = 2
-            if steps_per >= env_1_threshold:
+            if steps_per >= self.env_0_threshold:
                 self.last_env_index = 1
                 self.last_task = 1
 
-        elif self.mode_env == 2:
+        elif self.mode_env == 1:
             # change the environment based on the reward function
             # if the mean reward is above a threshold, switch to the adult environment
+            rewards = []
+            for global_worker_id, data in episode_data.items():
+                for episode, tmp_data in data.items():
+                    rewards.append(tmp_data['reward'])
             mean_reward = np.mean(rewards)
-            if mean_reward >= env_2_threshold:
+            if mean_reward >= self.env_1_threshold:
                 self.last_env_index = 1
 
+        elif self.mode_env == 2:
+            # no environment curriculum
+            print(f"No environment curriculum, using environment {self.last_env_index} for all epochs.")
+
+        
+        #### Curriculum for the targets (target angle, target velocity)
+        #####DENIS IMPLEMENTATION (DOES CURRENTLY NOT WORK ANYMORE, SINCE THE VELOCITIES AND ANGLES ARE STORED WITH WORKER AND EPISODE INFORMATION)
         target_0_threshold = [0.5,0.3] #[0.3,0.2] #[0.5, 0.15] #0.6
         # target_1_threshold[0] = env_1_threshold, so that the ranges are not changed until the environment is switched to the adult
         target_1_threshold =[0.08, 0.16, 0.24, 0.32, 0.4] #[0.08, 0.16, 0.4] # for 2.5e7 steps total until 1e7 in 4-year-old (B-W-R) then adult (R)
@@ -475,9 +484,9 @@ class CurriculumBufferBWR(Buffer):
                     target_angle = tmp_data['angle'][0][1]
                     self.sampling_grid.add_episode_to_counts(target_vel, target_angle)
                     self.sampling_grid.add_episode_to_counts(target_vel, target_angle,tmp=True)
-            self.sampling_grid.plot_counts(tmp=True,savepath=f"/home/nadinebadie/denis/valentin_results/results_19_1000/tmp_counts/{self.epoch_counter}.png")
+            self.sampling_grid.plot_counts(tmp=True,savepath=f"/home/nadinebadie/denis/valentin_results/test_19_0/tmp_counts/{self.epoch_counter}.png")
             self.sampling_grid.reset_tmp_counts()
-            self.sampling_grid.plot_counts(tmp=False,savepath=f"/home/nadinebadie/denis/valentin_results/results_19_1000/total_counts/{self.epoch_counter}.png")
+            self.sampling_grid.plot_counts(tmp=False,savepath=f"/home/nadinebadie/denis/valentin_results/test_19_0/total_counts/{self.epoch_counter}.png")
             self.epoch_counter += 1
 
             if self.task == "standing":
