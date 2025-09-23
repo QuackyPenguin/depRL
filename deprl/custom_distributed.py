@@ -236,6 +236,7 @@ class Sequential:
                   - normalized_target_velocity (float): The current target velocity normalized by the target velocity.
         """
         return [(worker_id, self.current_episodes[worker_id], (env.unwrapped.get_parallel_velocity()/env.unwrapped.get_target_velocity(), env.unwrapped.get_current_target_velocity()/env.unwrapped.get_target_velocity())) for worker_id, env in enumerate(self.environments)]
+    
     def get_angles(self):
         """
         Get the current orientation and target angle of the environment for each worker.
@@ -253,6 +254,7 @@ class Sequential:
                   - target_angle (float): The current target angle of the environment.
         """
         return [(worker_id, self.current_episodes[worker_id], (env.unwrapped.get_orientation(), env.unwrapped.get_current_target_angle())) for worker_id, env in enumerate(self.environments)]
+   
     def get_reward_scale(self):
         """
         Get the reward scale of the environment for each worker.
@@ -262,6 +264,7 @@ class Sequential:
             list: A list of reward scales for each worker.
         """
         return [env.unwrapped.get_reward_scale() for env in self.environments]
+   
     def get_episode_lengths(self):
         """
         Get the episode lengths for each worker. Each worker has its own list of episode lengths. 
@@ -275,6 +278,7 @@ class Sequential:
         for worker_id, _ in enumerate(self.environments):
             episode_lengths[worker_id] = self.episode_lengths[worker_id]
         return episode_lengths
+   
     def get_episode_rewards(self):
         """
         Get the episode rewards for each worker. Each worker has its own list of episode rewards.
@@ -288,6 +292,7 @@ class Sequential:
         for worker_id, _ in enumerate(self.environments):
             episode_rewards[worker_id] = self.episode_rewards[worker_id]
         return episode_rewards
+    
     def reset_worker_data(self):
         """
         Clear the worker data for each environment. This includes resetting the current episode index,
