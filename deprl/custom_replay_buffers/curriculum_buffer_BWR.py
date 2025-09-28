@@ -12,7 +12,7 @@ class CurriculumBufferBWR(Buffer):
     """
 
     def __init__(self, *args, **kwargs):
-        # initialize the environment index, angle range, velocity range
+        # initialize the environment index, angle range, velocity range, grid resolution, success threshold, task, and epoch counter
         self.last_env_index = 1 # 0 - 4 year old, 1 - adult
         initial_angle_range = (0, 0)
         initial_vel_range = (0,0)
@@ -70,6 +70,7 @@ class CurriculumBufferBWR(Buffer):
     def _curriculum_step(
         self,
         steps_per=0,
+        reward_scale = None,
         collected_velocities=None,
         collected_angles=None,
         worker_rewards=None,
@@ -77,6 +78,8 @@ class CurriculumBufferBWR(Buffer):
         """Perform a curriculum step. Update the environment index and the sampling grid.
 
         Args:
+            steps_per (float): The percentage of steps completed in the training.
+            reward_scale (float): The scaling factor for the rewards (dependent on the model).
             collected_velocities (list): The list of the tuples of the current and target velocities of the tasks; format: [(global_worker_id, episode_index, (normalized_actual_velocity, normalized_target_velocity))]_i.
             collected_angles (list): The list of the tuples of the current and target angles of the tasks; format: [(global_worker_id, episode_index, (actual_angle, target_angle))]_i.
             worker_rewards (dictionary): The list of the rewards of the tasks.
@@ -154,8 +157,8 @@ class CurriculumBufferBWR(Buffer):
                 print("mean reward", mean_reward)
                 if mean_reward >= 2100:
                     self.task = "walking"
-                    self.sampling_grid._extend_grid_velocity(skip=2)
-                    self.sampling_grid._adapt_weights_03_04()
+                    self.sampling_grid.extend_grid_velocity(skip=2)
+                    self.sampling_grid.adapt_weights(weight_adaptation_method="uniform")
                     print("switch to walking")
             elif self.task == "walking":
                 for _, data in episode_data.items():
@@ -163,8 +166,7 @@ class CurriculumBufferBWR(Buffer):
                         target_vel = tmp_data['velocity'][0][1]
                         target_angle = tmp_data['angle'][0][1]
                         reward = tmp_data['reward']
-                        self.sampling_grid.update_08_04_fixed_weights_angle(target_vel,target_angle,reward)
-                self.sampling_grid._adapt_weights_03_04()
+                        self.sampling_grid.update(update_method = "reward_based_angle", target_velocity=target_vel, target_angle=target_angle, reward=reward)
                 for i in range(len(self.sampling_grid.grid)):
                     if self.sampling_grid.grid[i][0] == 0:
                         self.sampling_grid.weights[i] = 0
@@ -178,16 +180,16 @@ class CurriculumBufferBWR(Buffer):
                 print("mean reward", mean_reward)
                 if mean_reward >= 2100:
                     self.task = "walking"
-                    self.sampling_grid._extend_grid_velocity(skip=2)
-                    self.sampling_grid._adapt_weights_03_04()
+                    self.sampling_grid.extend_grid_velocity(skip=2)
+                    self.sampling_grid.adapt_weights(weight_adaptation_method="uniform")
                     print("switch to walking")
                     max_angle = 0
                     while max_angle < np.pi-1e-3:
-                        self.sampling_grid._extend_grid_angle_top()
-                        self.sampling_grid._extend_grid_angle_bottom()
+                        self.sampling_grid.extend_grid_angle_top()
+                        self.sampling_grid.extend_grid_angle_bottom()
                         angles = self.sampling_grid.grid[:, 1]
                         max_angle = np.max(angles)
-                    self.sampling_grid._adapt_weights_03_04()
+                    self.sampling_grid.adapt_weights(weight_adaptation_method="uniform")
                     for i in range(len(self.sampling_grid.grid)):
                         if self.sampling_grid.grid[i][0] == 0:
                             self.sampling_grid.weights[i] = 0
@@ -201,8 +203,8 @@ class CurriculumBufferBWR(Buffer):
                 print("mean reward", mean_reward)
                 if mean_reward >= 2100:
                     self.task = "walking"
-                    self.sampling_grid._extend_grid_velocity(skip=2)
-                    self.sampling_grid._adapt_weights_03_04()
+                    self.sampling_grid.extend_grid_velocity(skip=2)
+                    self.sampling_grid.adapt_weights(weight_adaptation_method="uniform")
                     self.sampling_grid.weights[0] = 0
                     print("switch to walking")        
             elif self.task == "walking":
@@ -211,7 +213,7 @@ class CurriculumBufferBWR(Buffer):
                         target_vel = tmp_data['velocity'][0][1]
                         target_angle = tmp_data['angle'][0][1]
                         reward = tmp_data['reward']
-                        self.sampling_grid.update_03_04_fixed_weights(steps_per,target_vel,target_angle,reward)
+                        self.sampling_grid.update(update_method = "reward_based_vel", steps_per = steps_per, target_vel = target_vel,target_angle = target_angle, reward =reward)
                         self.sampling_grid.weights[0] = 0
 
         elif self.mode_target == 27:
@@ -223,16 +225,16 @@ class CurriculumBufferBWR(Buffer):
                 print("mean reward", mean_reward)
                 if mean_reward >= 2100:
                     self.task = "walking"
-                    self.sampling_grid._extend_grid_velocity(skip=2)
-                    self.sampling_grid._adapt_weights_03_04()
+                    self.sampling_grid.extend_grid_velocity(skip=2)
+                    self.sampling_grid.adapt_weights(weight_adaptation_method="uniform")
                     self.sampling_grid.weights[0] = 0
                     print("switch to walking")
                     max_vel = 0
                     while max_vel < 1.2-1e-3:
-                        self.sampling_grid._extend_grid_velocity()
+                        self.sampling_grid.extend_grid_velocity()
                         vels = self.sampling_grid.grid[:, 0]
                         max_vel = np.max(vels)
-                    self.sampling_grid._adapt_weights_03_04()
+                    self.sampling_grid.adapt_weights(weight_adaptation_method="uniform")
                     for i in range(len(self.sampling_grid.grid)):
                         if self.sampling_grid.grid[i][0] == 0:
                             self.sampling_grid.weights[i] = 0     
@@ -247,8 +249,8 @@ class CurriculumBufferBWR(Buffer):
                 print("mean reward", mean_reward)
                 if mean_reward >= 2100:
                     self.task = "walking"
-                    self.sampling_grid._extend_grid_velocity(skip=2)
-                    self.sampling_grid._adapt_weights_03_04()
+                    self.sampling_grid.extend_grid_velocity(skip=2)
+                    self.sampling_grid.adapt_weights(weight_adaptation_method="uniform")
                     self.sampling_grid.weights[0] = 0
                     print("switch to walking")
                     for i in range(len(self.sampling_grid.grid)):
@@ -260,7 +262,7 @@ class CurriculumBufferBWR(Buffer):
                         target_vel = tmp_data['velocity'][0][1]
                         target_angle = tmp_data['angle'][0][1]
                         reward = tmp_data['reward']
-                        self.sampling_grid.update_08_04_fixed_weights_angle(target_vel,target_angle,reward)
+                        self.sampling_grid.update(update_method = "reward_based_angle", velocity=target_vel, angle=target_angle, reward=reward)
                         for i in range(len(self.sampling_grid.grid)):
                             if self.sampling_grid.grid[i][0] == 0:
                                 self.sampling_grid.weights[i] = 0
@@ -270,7 +272,7 @@ class CurriculumBufferBWR(Buffer):
             elif self.task == "learn_different_speeds":
                 transformed_steps_per = steps_per - 2/3
                 transformed_steps_per = transformed_steps_per / (1 - 2/3)
-                self.sampling_grid.update_fixed(transformed_steps_per)
+                self.sampling_grid.update(update_method = "fixed", steps_per=transformed_steps_per, restrict_to = "vel", end_vel = 0.7)
                 for i in range(len(self.sampling_grid.grid)):
                     if self.sampling_grid.grid[i][0] == 0:
                         self.sampling_grid.weights[i] = 0
