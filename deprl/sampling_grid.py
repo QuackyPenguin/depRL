@@ -6,7 +6,6 @@ class SamplingGrid:
         self.resolution_vel = resolution[0]
         self.resolution_angle = resolution[1]
         self.success_threshold = success_threshold
-        self._grid = self._create_grid(vel_range, angle_range, self.resolution_vel, self.resolution_angle)
 
         # counter for reward-based updates
         self.success_counter_vel = 0
@@ -22,6 +21,8 @@ class SamplingGrid:
         # only used for plotting: initialize counts for plotting the number of episodes in each cell
         self.counts = {}
         self.tmp_counts = {}
+
+        self._grid = self._create_grid(vel_range, angle_range, self.resolution_vel, self.resolution_angle)
 
     @property
     def weights(self):
@@ -243,41 +244,34 @@ class SamplingGrid:
 # functions for updating the grid with the specified curriculum methods
 ######################################################################################################################################
 ######################################################################################################################################
-    def update(self, update_method = None, weight_adaptation_method = "uniform", training_progress = None, target_velocity = None, target_angle = None, reward = None):
+    def update(self, update_method = None, restrict_to = None, weight_adaptation_method = "uniform", training_progress = None, end_vel = 1.2, end_angle = np.pi, target_velocity = None, target_angle = None, reward = None):
         """
         Updates the grid based on the specified update method.
         Args:
             update_method (str): The method to use for updating the grid. Currently possible options:
             - 'fixed': Extends the grid at fixed intervals based on training progress.
-            - 'reward_based_angle': Extends the grid in angle direction based on the mean reward achieved in the last epoch. Keeps the velocity fixed.
-            - 'reward_based_vel': Extends the grid in velocity direction based on the mean reward achieved in the last epoch. Keeps the angle fixed.
-            - 'reward_based': Extends the grid in both velocity and angle directions based on the reward achieved in the last epoch.
+            - 'reward_based': Extends the grid based on the reward achieved in the last epoch.
+            restrict_to (str): If specified, restrict the grid update to the given dimension ('angle' or 'vel'). Default is None.
             weight_adaptation_method (str): The method to use for adapting weights after the grid update. Default is 'uniform'.
             training_progress (float): The current training progress as a fraction between 0 and 1. Only necessary for the 'fixed' method.
-            target_velocity (float): The target velocity of the last episode. 
-            target_angle (float): The target angle of the last episode. 
-            reward (float): The reward achieved in the last episode. 
+            end_vel (float): The target maximum velocity to reach by the end of training. Only necessary for the 'fixed' method. Default is 1.2.
+            end_angle (float): The target maximum angle to reach by the end of training. Only necessary for the 'fixed' method. Default is np.pi.
+            target_velocity (float): The target velocity of the last episode. Only necessary for the 'reward_based' method.
+            target_angle (float): The target angle of the last episode. Only necessary for the 'reward_based' method.
+            reward (float): The reward achieved in the last episode. Only necessary for the 'reward_based' method.
         """
         if update_method == 'fixed':
             if training_progress == None: 
                 raise Exception("training progress must be given to perform fixed grid updates")
-            self._update_fixed(training_progress, weight_adaptation_method = weight_adaptation_method)
-        elif update_method == 'reward_based_angle':
-            if target_velocity == None or target_angle == None or reward == None:
-                    raise Exception("target velocity, target angle and reward must not be None to perform reward-based grid updates") 
-            self._update_reward_based(target_velocity, target_angle, reward, restrict_to = 'angle', weight_adaptation_method= weight_adaptation_method)
-        elif update_method == 'reward_based_vel':
-            if target_velocity == None or target_angle == None or reward == None:
-                    raise Exception("target velocity, target angle and reward must not be None to perform reward-based grid updates") 
-            self._update_reward_based(target_velocity, target_angle, reward, restrict_to= 'vel', weight_adaptation_method= weight_adaptation_method)
+            self._update_fixed(training_progress, end_vel = end_vel, end_angle = end_angle, weight_adaptation_method = weight_adaptation_method, restrict_to = restrict_to)
         elif update_method == 'reward_based':
             if target_velocity == None or target_angle == None or reward == None:
                     raise Exception("target velocity, target angle and reward must not be None to perform reward-based grid updates") 
-            self._update_reward_based(training_progress, target_velocity, target_angle, reward, weight_adaptation_method= weight_adaptation_method)
+            self._update_reward_based(target_velocity, target_angle, reward, weight_adaptation_method= weight_adaptation_method, restrict_to = restrict_to)
         else:
             raise Exception(f"Update method {update_method} not implemented yet")
         
-    def _update_fixed(self,training_progress, weight_adaptation_method, restrict_to = None, end_vel = 1.2, end_angle = np.pi):
+    def _update_fixed(self,training_progress, end_vel, end_angle, weight_adaptation_method, restrict_to = None):
         """
         Updates the grid based on the training progress.
         It extends the grid at fixed stages of training progress such that at the end of training, the grid covers the predefined ranges.
@@ -293,8 +287,6 @@ class SamplingGrid:
         angles = self.grid[:, 1]
         max_angle = np.max(angles)
         min_angle = np.min(angles)
-        if np.abs(max_angle - min_angle) > 1e-3:
-            raise Exception("Grid is not symmetric in angle direction. Fixed updates only work for symmetric grids.")
         if max_vel > 1e-3 and max_vel < 0.3 - 1e-3:
             raise Exception("Currently fixed updates only work for max_vel = 0 or max_vel >= 0.3")
         # initialize the number of updates at the first call; number is calculated s.t. on init value (max_...) and end value we have some training time
@@ -303,7 +295,7 @@ class SamplingGrid:
             self.end_angle = end_angle
             # if the init velocity (max_vel) is 0, we need fewer update steps, since we skip 0.1 and 0.2 as target velocities
             self.num_of_updates_vel = int((end_vel-max_vel) / self.resolution_vel + 1) if max_vel > 0.3 - 1e-3 else int((end_vel) / self.resolution_vel - 1)
-            self.num_of_updates_angle = int((end_angle - np.abs(min_angle)) / self.resolution_angle + 1)
+            self.num_of_updates_angle = int((end_angle-max_angle) / self.resolution_angle + 1)
         if self.end_vel != end_vel or self.end_angle != end_angle:
             raise Exception(f"end_vel and end_angle must not be changed after the first call of fixed updates. end_vel: {self.end_vel}, end_angle: {self.end_angle}")
         # Check if the grid needs to be extended in angle direction based on the training progress
@@ -326,7 +318,7 @@ class SamplingGrid:
                         self.extend_grid_velocity()
         self.adapt_weights(weight_adaptation_method)
 
-    def _update_reward_based(self, training_progress, velocity, angle, reward, weight_adaptation_method, restrict_to = None):
+    def _update_reward_based(self, velocity, angle, reward, weight_adaptation_method, restrict_to = None):
         """
         Updates the grid based on the reward achieved in the last episode.
         It extends the grid in velocity and/or angle directions if the reward exceeds the success threshold and the current point is at the border of the grid.
@@ -345,7 +337,6 @@ class SamplingGrid:
                     if self.success_counter_vel > 50:
                         self.extend_grid_velocity()
                         self.success_counter_vel = 0
-                        print("Extended grid along velocity axis")
                     else:
                         self.success_counter_vel += 1
             if restrict_to != 'vel':
@@ -353,14 +344,12 @@ class SamplingGrid:
                     if self.success_counter_angle_top > 50:
                         self.extend_grid_angle_top()
                         self.success_counter_angle_top = 0
-                        print("Extended grid along angle top angle axis")
                     else:
                         self.success_counter_angle_top += 1
                 if self._is_border_angle_bottom(node_idx) and self.grid[node_idx, 1] > -np.pi:
                     if self.success_counter_angle_bottom > 50:
                         self.extend_grid_angle_bottom()
                         self.success_counter_angle_bottom = 0
-                        print("Extended grid along angle bottom axis")
                     else:
                         self.success_counter_angle_bottom += 1
         self.adapt_weights(weight_adaptation_method)
