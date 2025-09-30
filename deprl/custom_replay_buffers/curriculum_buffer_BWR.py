@@ -19,11 +19,11 @@ class CurriculumBufferBWR(Buffer):
         self.resolution = (0.1, np.pi/8)
         success_threshold = 1250
         self.task = "standing"
-        self.epoch_counter = 0
+        self.epoch_counter = 0 # used only for plotting
 
         # 0 - target task, 1 - velocity task, 2 - orientation task
         # initial task is for the 4 year old
-        self.last_task = 1
+        self.last_task = 1 # currently not used anymore, could be used for switching the tasks
 
         # initialize the grid adaptive curriculum
         self.sampling_grid = SamplingGrid(
@@ -62,7 +62,7 @@ class CurriculumBufferBWR(Buffer):
         
         # set settings for environment curriculum methods
         self.env_0_threshold = 0.4 # percentage of steps in the 4-year-old environment
-        self.env_1_threshold = 2000 # threshold for the mean reward to switch to the adult environment
+        self.env_1_threshold = 1500 # threshold for the mean reward to switch to the adult environment
 
         # Initial values ----------------
         super().__init__(*args, **kwargs)
@@ -114,12 +114,12 @@ class CurriculumBufferBWR(Buffer):
         #             target_angle = tmp_data['angle'][0][1]
         #             self.sampling_grid.add_episode_to_counts(target_vel, target_angle)
         #             self.sampling_grid.add_episode_to_counts(target_vel, target_angle,tmp=True)
-        # self.sampling_grid.plot_counts(tmp=True,save_path=f"/home/nadinebadie/denis/valentin_results/test0/tmp_counts/{self.epoch_counter}.png")
+        # self.sampling_grid.plot_counts(tmp=True,save_path=f"/home/nadinebadie/denis/valentin_results/test/tmp_counts/{self.epoch_counter}.png")
         # self.sampling_grid.reset_tmp_counts()
-        # self.sampling_grid.plot_counts(tmp=False,save_path=f"/home/nadinebadie/denis/valentin_results/test0/total_counts/{self.epoch_counter}.png")
+        # self.sampling_grid.plot_counts(tmp=False,save_path=f"/home/nadinebadie/denis/valentin_results/test/tmp_counts/{self.epoch_counter}.png")
 
         # #### comment in if you want to plot the sampling grid after each epoch
-        # self.sampling_grid.plot(save_path=f"/home/nadinebadie/denis/valentin_results/test0/sampling_grid/{self.epoch_counter}.png")
+        # self.sampling_grid.plot(save_path=f"/home/nadinebadie/denis/valentin_results/test/sampling_grid/{self.epoch_counter}.png")
         # self.epoch_counter += 1
 
 
@@ -154,7 +154,6 @@ class CurriculumBufferBWR(Buffer):
             walking phase: keep target velocity fixed at 0.3, increase target angle range reward-based"""
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
-                print("mean reward", mean_reward)
                 if mean_reward >= 2100:
                     self.task = "walking"
                     self.sampling_grid.extend_grid_velocity(skip=2)
@@ -166,7 +165,7 @@ class CurriculumBufferBWR(Buffer):
                         target_vel = tmp_data['velocity'][0][1]
                         target_angle = tmp_data['angle'][0][1]
                         reward = tmp_data['reward']
-                        self.sampling_grid.update(update_method = "reward_based_angle", target_velocity=target_vel, target_angle=target_angle, reward=reward)
+                        self.sampling_grid.update(update_method = "reward_based", restrict_to="angle", target_velocity=target_vel, target_angle=target_angle, reward=reward)
                 for i in range(len(self.sampling_grid.grid)):
                     if self.sampling_grid.grid[i][0] == 0:
                         self.sampling_grid.weights[i] = 0
@@ -177,7 +176,6 @@ class CurriculumBufferBWR(Buffer):
             walking phase: keep target velocity fixed at 0.3, full target angle range"""
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
-                print("mean reward", mean_reward)
                 if mean_reward >= 2100:
                     self.task = "walking"
                     self.sampling_grid.extend_grid_velocity(skip=2)
@@ -200,7 +198,6 @@ class CurriculumBufferBWR(Buffer):
             walking phase: keep target angle fixed at 0, increase target velocity range reward-based"""
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
-                print("mean reward", mean_reward)
                 if mean_reward >= 2100:
                     self.task = "walking"
                     self.sampling_grid.extend_grid_velocity(skip=2)
@@ -213,7 +210,7 @@ class CurriculumBufferBWR(Buffer):
                         target_vel = tmp_data['velocity'][0][1]
                         target_angle = tmp_data['angle'][0][1]
                         reward = tmp_data['reward']
-                        self.sampling_grid.update(update_method = "reward_based_vel", steps_per = steps_per, target_vel = target_vel,target_angle = target_angle, reward =reward)
+                        self.sampling_grid.update(update_method = "reward_based", restrict_to= "vel", training_progress = steps_per, target_velocity = target_vel, target_angle = target_angle, reward = reward)
                         self.sampling_grid.weights[0] = 0
 
         elif self.mode_target == 27:
@@ -222,7 +219,6 @@ class CurriculumBufferBWR(Buffer):
             walking phase: keep target angle fixed at 0, full target velocity range (0, 1.2)"""
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
-                print("mean reward", mean_reward)
                 if mean_reward >= 2100:
                     self.task = "walking"
                     self.sampling_grid.extend_grid_velocity(skip=2)
@@ -246,7 +242,6 @@ class CurriculumBufferBWR(Buffer):
             then stop increasing the target angle range and increase the max target velocity from 0.3 to 0.7 equitemporarily"""
             if self.task == "standing":
                 mean_reward = np.mean([tmp_data['reward'] for worker_data in episode_data.values() for tmp_data in worker_data.values()])
-                print("mean reward", mean_reward)
                 if mean_reward >= 2100:
                     self.task = "walking"
                     self.sampling_grid.extend_grid_velocity(skip=2)
@@ -262,7 +257,7 @@ class CurriculumBufferBWR(Buffer):
                         target_vel = tmp_data['velocity'][0][1]
                         target_angle = tmp_data['angle'][0][1]
                         reward = tmp_data['reward']
-                        self.sampling_grid.update(update_method = "reward_based_angle", velocity=target_vel, angle=target_angle, reward=reward)
+                        self.sampling_grid.update(update_method = "reward_based", restrict_to="angle", target_velocity=target_vel, target_angle=target_angle, reward=reward)
                         for i in range(len(self.sampling_grid.grid)):
                             if self.sampling_grid.grid[i][0] == 0:
                                 self.sampling_grid.weights[i] = 0
@@ -272,7 +267,7 @@ class CurriculumBufferBWR(Buffer):
             elif self.task == "learn_different_speeds":
                 transformed_steps_per = steps_per - 2/3
                 transformed_steps_per = transformed_steps_per / (1 - 2/3)
-                self.sampling_grid.update(update_method = "fixed", steps_per=transformed_steps_per, restrict_to = "vel", end_vel = 0.7)
+                self.sampling_grid.update(update_method = "fixed", restrict_to = "vel", training_progress=transformed_steps_per, end_vel = 0.7)
                 for i in range(len(self.sampling_grid.grid)):
                     if self.sampling_grid.grid[i][0] == 0:
                         self.sampling_grid.weights[i] = 0
