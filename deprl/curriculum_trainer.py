@@ -72,7 +72,6 @@ class Trainer:
         # keep track of data that can be used to update the curriculum
         collected_velocities = [] # to collect the velocities of all workers with information on the episode, format: [(global_worker_index, episode, (norm. actual vel. step, norm. target vel.)), ...]
         collected_angles = [] # to collect the angles of all workers with information on the episode, format: [(global_worker_index, episode, (actual angle, target angle)), ...]
-        # rewards_of_last_10_epochs = []
 
         # get the initial curriculum parameters
         environment_turn = self.agent.replay.last_env_index
@@ -246,10 +245,6 @@ class Trainer:
                 collected_angles = [(global_worker_index, 0, angle) for global_worker_index, episode, angle in collected_angles if (not info["resets"][global_worker_index] and episode == number_of_episodes[global_worker_index]-1)]
                 #reset data for the next epoch (data means episode_rewards, episode_lengths, current_episodes in custom_distributed.py)
                 self.environment.reset_worker_data()
-                # rewards_of_last_10_epochs.append(rewards.copy())
-                # if len(rewards_of_last_10_epochs) > 10:
-                #     rewards_of_last_10_epochs.pop(0)
-
 
             # End of training.
             stop_training = self.steps >= self.max_steps
@@ -274,11 +269,6 @@ class Trainer:
 
             if stop_training:
                 self.close_mp_envs()
-                # reward_summary = rewards_of_last_10_epochs
-                # flat_reward_summary = [value for sublist in reward_summary for value in sublist]
-                # import nni
-                # avg_reward = np.mean(flat_reward_summary)
-                # nni.report_final_result(avg_reward)
                 return scores
 
     def close_mp_envs(self):

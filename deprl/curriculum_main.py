@@ -11,7 +11,6 @@ from deprl import custom_distributed
 from deprl.utils import load_checkpoint, prepare_params
 from deprl.vendor.tonic import logger
 
-import nni
 
 def train(
     config,
@@ -175,14 +174,6 @@ def set_tensor_device():
 
 def main():
     config = prepare_params()
-    # # Get parameters from NNI
-    # try:
-    #     nni_params = nni.get_next_parameter()
-    #     print("Received NNI params:", nni_params)
-    #     config["model_args"].update(nni_params)  # Assuming model_args has your MPO params
-    # except Exception as e:
-    #     print("No NNI parameters received, using defaults.", e)
-
     if "cpu_override" in config["tonic"] and config["tonic"]["cpu_override"]:
         torch.set_default_device("cpu")
         logger.log("Manually forcing CPU run.")
