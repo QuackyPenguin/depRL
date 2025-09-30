@@ -6,8 +6,6 @@ import numpy as np
 
 from deprl.utils import stdout_suppression
 
-from deprl.grid_adaptive_curriculum import GridAdaptiveCurriculum
-
 
 i = 0
 
@@ -81,12 +79,12 @@ def proc(
 
         # print('custom_distributed len message', len(message))
 
-        actions, angle_range, vel_range, gridAdaptiveCurric, stand_prob, new_task = message
+        actions, angle_range, vel_range, stand_prob, new_task = message
 
         # print('custom_distributed angle_range', angle_range)
         # print('custom_distributed vel_range', vel_range)
 
-        out = envs.step(actions, angle_range, vel_range, gridAdaptiveCurric, stand_prob, new_task)
+        out = envs.step(actions, angle_range, vel_range, stand_prob, new_task)
         output_queue.put((index, out))
 
 
@@ -137,7 +135,6 @@ class Sequential:
         actions,
         angle_range: tuple = (-np.pi / 4, np.pi / 4),
         vel_range: tuple = (0.25, 1.0),
-        gridAdaptiveCurric = GridAdaptiveCurriculum(vel_range=(0.25, 1.25), angle_range=(-np.pi, np.pi), resolution=(0.1, np.pi/32)), # muss hier als default gesetzt werden, weil beim testen im curriculum_trainer die gridAdaptiveCurric nicht gesetzt wird, aber diese Funktion hier aufgerufen wird
         stand_prob: float = 0.0,
         new_task: int = 0,
     ):
@@ -170,7 +167,6 @@ class Sequential:
                 ob = self.environments[i].reset(
                     angle_range=angle_range,
                     vel_range=vel_range,
-                    gridAdaptiveCurric = gridAdaptiveCurric,
                     stand_prob=stand_prob,
                     new_task=new_task,
                 )
@@ -201,13 +197,6 @@ class Sequential:
     def render_substep(self):
         for env in self.environments:
             env.render_substep()
-
-    def get_vel(self):
-        return [[env.unwrapped.model_velocity(), env.unwrapped.current_target_vel] for env in self.environments]
-    def get_angles(self):
-        return [[np.arctan2(env.unwrapped.model.com_vel().z, env.unwrapped.model.com_vel().x), env.unwrapped.angle] for env in self.environments]
-    def get_reward_scale(self):
-        return [env.unwrapped.reward_scale for env in self.environments]
 
 
 class Parallel:
@@ -314,13 +303,12 @@ class Parallel:
         actions,
         angle_range: tuple = (-np.pi / 4, np.pi / 4),
         vel_range: tuple = (0.25, 1.0),
-        gridAdaptiveCurric = None,
         stand_prob: float = 0.0,
         new_task: int = 0,
     ):
         actions_list = np.split(actions, self.worker_groups)
         for actions, pipe in zip(actions_list, self.action_pipes):
-            pipe.send((actions, angle_range, vel_range, gridAdaptiveCurric, stand_prob, new_task))
+            pipe.send((actions, angle_range, vel_range, stand_prob, new_task))
 
         for _ in range(self.worker_groups):
             index, (
